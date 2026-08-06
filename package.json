@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "tsx scripts/run-migrations.ts",
-    "db:seed": "tsx scripts/import-seed.ts"
+    "db:seed": "tsx scripts/import-seed.ts",
+    "invite:user": "tsx scripts/invite-user.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

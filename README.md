@@ -28,12 +28,20 @@ against.
 ## Supabase setup checklist
 
 1. Create a Supabase project.
-2. In the SQL editor (or via `supabase db push` / CLI migrations), run, in
-   order:
-   - `supabase/migrations/0001_schema.sql`
-   - `supabase/migrations/0002_rls_policies.sql`
-   - `supabase/migrations/0003_reporting_views.sql`
-   - (`0004_seed_load_order_notes.sql` is comments only, not executable SQL)
+2. Run the migrations, in filename order. Easiest is the included runner
+   against the **direct** connection string (Project Settings -> Database ->
+   Connection string -> Direct connection — not the pooler, DDL needs a
+   plain session):
+   ```bash
+   SUPABASE_DB_URL="postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres" \
+   npm run db:migrate
+   ```
+   This applies every `.sql` file in `supabase/migrations/` once. There's no
+   migration-history table, so re-running the full set will fail on
+   `create policy` statements that already exist — to apply just one new
+   file later, pass its name: `npm run db:migrate -- 0005_some_fix.sql`.
+   (Equivalent: paste each file into the Supabase SQL editor in order.
+   `0004_seed_load_order_notes.sql` is comments only, not executable SQL.)
 3. Load lookup tables, the chapter master, and rubric structure:
    ```bash
    SUPABASE_URL=https://<project>.supabase.co \
@@ -56,8 +64,22 @@ against.
    every named reviewer (DD, RVP, Executive Director, admin). The
    `handle_new_profile` trigger auto-creates a matching `public.profiles`
    row with `role_code` from `raw_user_meta_data.role_code` (defaults to
-   `chapter` if omitted) — set that in the Auth user's metadata, or update
-   `profiles.role_code`/`district`/`region` afterward.
+   `chapter` if omitted).
+   For named reviewers/admins with a real inbox, use the invite script —
+   it sends a Supabase invite email and the person sets their own password,
+   so this never handles a password:
+   ```bash
+   SUPABASE_URL=https://<project>.supabase.co \
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+   npm run invite:user -- --email=someone@example.com --role=admin \
+     [--name="Full Name"] [--district="Texas"] [--region="Southwestern"]
+   ```
+   `--role` is one of `chapter, district_director, rvp, executive_director,
+   admin`; `--district`/`--region` only matter for `district_director`/`rvp`
+   (they scope that reviewer's queues). For chapter shared logins (not tied
+   to one person's inbox), create the user via the Supabase dashboard
+   (Authentication -> Users -> Add user) instead, setting
+   `role_code: "chapter"` in raw user metadata.
 6. Link each chapter's shared auth user to its chapter row in
    `chapter_user_links`.
 7. Set up reviewer assignments via `/admin/reviewers` in the app, or by
@@ -111,9 +133,9 @@ script.
   the parse-and-upsert action is a stub (`app/admin/chapters/actions.ts`) —
   the initial 879-chapter load goes through `scripts/import-seed.ts`
   instead. Wire the stub up if in-app reimport/refresh is needed later.
-- **Admin role provisioning**: the first `admin` profile has to be created
-  by hand (set `role_code = 'admin'` on a `profiles` row after that user
-  signs up) — there's no self-serve admin signup.
+- **Admin role provisioning**: the first `admin` profile has to be
+  provisioned via `scripts/invite-user.ts` (or the Supabase dashboard) —
+  there's no self-serve admin signup.
 - Route access is enforced with server-side role checks
   (`lib/auth/roles.ts`) in every route group's `layout.tsx`, on top of the
   RLS policies in `0002_rls_policies.sql` — the UI check is a redirect for
@@ -121,10 +143,12 @@ script.
 
 ## What to do next
 
-1. Wire up real auth user creation (chapter shared accounts + reviewer
-   accounts) — likely an admin flow that calls
-   `supabase.auth.admin.createUser` with a service-role key from a secure
-   server context.
+1. Named reviewer/admin accounts can be provisioned via
+   `scripts/invite-user.ts` (invite-email flow). Chapter shared logins
+   still need a flow — those aren't tied to one person's inbox, so an
+   invite email doesn't fit; likely an in-app admin action that calls
+   `supabase.auth.admin.createUser` with a generated temporary password,
+   from a secure server context.
 2. Fill in `reporting_windows_template.csv` with real Fall/Spring open and
    close dates and load it, so the app stops relying on the calendar
    fallback in `lib/reportingPeriod.ts`.
