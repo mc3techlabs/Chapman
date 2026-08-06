@@ -3,6 +3,8 @@
 Production scaffold for the Alpha Phi Alpha Fraternity, Inc. Chapman
 Reporting Portal — Next.js (App Router) + TypeScript + Tailwind + Supabase.
 
+Live: https://chapman-wheat.vercel.app
+
 The prior GenSpark prototype lives at `docs/prototype-reference.html`; its
 color palette, accordion rubric layout, and chapter identity display
 (`Name: X (Key)` / `District/Region: A - B`) are what the real UI is built
@@ -10,7 +12,8 @@ against.
 
 ## Stack
 
-- Next.js 16 (App Router), TypeScript, Tailwind CSS v4
+- Next.js 15.5 (App Router), TypeScript, Tailwind CSS v4 — pinned below
+  16.x; see the comment in `middleware.ts` for why
 - Supabase (Postgres, Auth, Row Level Security) via `@supabase/ssr`
 - Deploys to Vercel
 
@@ -88,12 +91,24 @@ against.
 ## Vercel deployment checklist
 
 1. Push this repo to GitHub (already connected: `mc3techlabs/Chapman`).
-2. Import the repo in Vercel.
-3. Add the two `NEXT_PUBLIC_*` environment variables from `.env.example` in
-   Vercel's project settings (Production + Preview). The service-role
-   variables are only needed for running `scripts/import-seed.ts` locally —
-   do not add them to Vercel.
+2. Import the repo at vercel.com/new.
+3. **Before** clicking Deploy, expand Environment Variables and add the two
+   `NEXT_PUBLIC_*` values from `.env.example` — click into each Value field
+   and confirm the real text is there (it's easy to leave the gray
+   placeholder example showing and think it's filled in). The service-role
+   variables are only needed for running scripts locally — do not add them
+   to Vercel.
 4. Deploy. Default Next.js build/output settings work as-is.
+5. Currently live at https://chapman-wheat.vercel.app.
+
+**If you hit `MIDDLEWARE_INVOCATION_FAILED` or every route 404ing despite a
+"Ready" deployment**: first check env vars are actually saved (see above).
+If that's not it and it persists across multiple fresh redeploys with no
+code change, it may be a Vercel account/team issue rather than an app bug —
+we hit exactly this after renaming a Vercel team mid-session (API tokens
+and the dashboard's commit-author display both started showing "User not
+found"). Creating a brand new Vercel project resolved it; if that doesn't,
+it's a Vercel support matter.
 
 ## Environment variables
 
