@@ -1,0 +1,880 @@
+chapter_key,chapter_name,chapter_type_code,university,district,region,status_code,is_dechartered
+1,Alpha,collegiate,Cornell University,New York,Eastern,Active,false
+23,Alpha Alpha,collegiate,University of Cincinnati,Ohio,Midwestern,Active,false
+123,Alpha Alpha Lambda,alumni,,New Jersey,Eastern,Active,false
+24,Alpha Beta,collegiate,Talladega College,Alabama,Southern,Active,false
+124,Alpha Beta Lambda,alumni,,Kentucky,Midwestern,Active,false
+43,Alpha Chi,collegiate,Fisk University,Tennessee,Southern,Active,false
+143,Alpha Chi Lambda,alumni,,Georgia,Southern,Active,false
+26,Alpha Delta,collegiate,University of Southern California,Southern California,Western,Active,false
+126,Alpha Delta Lambda,alumni,,Tennessee,Southern,Active,false
+27,Alpha Epsilon,collegiate,University of California - Berkeley,Northern California,Western,Active,false
+127,Alpha Epsilon Lambda,alumni,,Mississippi,Southern,Active,false
+29,Alpha Eta,collegiate,Saint Louis University,Missouri,Midwestern,Active,false
+129,Alpha Eta Lambda,alumni,,Texas,Southwestern,Active,false
+25,Alpha Gamma,collegiate,Brown University,New England,Eastern,Inactive,false
+125,Alpha Gamma Lambda,alumni,,New York,Eastern,Active,false
+31,Alpha Iota,collegiate,University of Colorado,Rocky Mountain (Colorado/Utah),Western,Dechartered,true
+131,Alpha Iota Lambda,alumni,,West Virginia,Midwestern,Inactive,false
+32,Alpha Kappa,collegiate,Amherst College,New England,Eastern,Active,false
+132,Alpha Kappa Lambda,alumni,,Virginia,Eastern,Active,false
+101,Alpha Lambda,alumni,,Kentucky,Midwestern,Active,false
+33,Alpha Mu,collegiate,Northwestern University,Illinois,Midwestern,Active,false
+133,Alpha Mu Lambda,alumni,,Tennessee,Southern,Active,false
+34,Alpha Nu,collegiate,Drake University,Iowa,Midwestern,Dechartered,true
+134,Alpha Nu Lambda,alumni,,Alabama,Southern,Active,false
+36,Alpha Omicron,collegiate,Johnson C. Smith University,North Carolina,Southern,Active,false
+136,Alpha Omicron Lambda,alumni,,Pennsylvania,Eastern,Active,false
+42,Alpha Phi,collegiate,Clark Atlanta University,Georgia,Southern,Active,false
+142,Alpha Phi Lambda,alumni,,Virginia,Eastern,Active,false
+37,Alpha Pi,collegiate,University of Louisville,Kentucky,Midwestern,Active,false
+137,Alpha Pi Lambda,alumni,,North Carolina,Southern,Active,false
+44,Alpha Psi,collegiate,Lincoln University,Missouri,Midwestern,Suspended,false
+144,Alpha Psi Lambda,alumni,,South Carolina,Southern,Active,false
+38,Alpha Rho,collegiate,Morehouse College,Georgia,Southern,Active,false
+138,Alpha Rho Lambda,alumni,,Ohio,Midwestern,Active,false
+39,Alpha Sigma,collegiate,Wiley College,Texas,Southwestern,Active,false
+139,Alpha Sigma Lambda,alumni,,Texas,Southwestern,Active,false
+40,Alpha Tau,collegiate,University of Akron,Ohio,Midwestern,Active,false
+140,Alpha Tau Lambda,alumni,,Oklahoma,Southwestern,Active,false
+30,Alpha Theta,collegiate,University of Iowa,Iowa,Midwestern,Active,false
+130,Alpha Theta Lambda,alumni,,New Jersey,Eastern,Active,false
+41,Alpha Upsilon,collegiate,Wayne State University,Michigan,Midwestern,Active,false
+141,Alpha Upsilon Lambda,alumni,,Alabama,Southern,Active,false
+35,Alpha Xi,collegiate,University of Washington,Great Northwest,Western,Active,false
+135,Alpha Xi Lambda,alumni,,Ohio,Midwestern,Active,false
+28,Alpha Zeta,collegiate,West Virginia State University,West Virginia,Midwestern,Active,false
+128,Alpha Zeta Lambda,alumni,,West Virginia,Midwestern,Active,false
+2,Beta,collegiate,Howard University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+45,Beta Alpha,collegiate,Morgan State University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+145,Beta Alpha Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+46,Beta Beta,collegiate,"University of Nebraska, Omaha",Nebraska,Midwestern,Active,false
+146,Beta Beta Lambda,alumni,,Florida,Southern,Active,false
+65,Beta Chi,collegiate,Philander Smith College,Arkansas,Southwestern,Active,false
+165,Beta Chi Lambda,alumni,,Oklahoma,Southwestern,Active,false
+48,Beta Delta,collegiate,South Carolina State University,South Carolina,Southern,Active,false
+148,Beta Delta Lambda,alumni,,Florida,Southern,Active,false
+49,Beta Epsilon,collegiate,North Carolina A & T State University,North Carolina,Southern,Active,false
+149,Beta Epsilon Lambda,alumni,,Oklahoma,Southwestern,Active,false
+51,Beta Eta,collegiate,Southern Illinois University - Carbondale,Illinois,Midwestern,Active,false
+151,Beta Eta Lambda,alumni,,Oklahoma,Southwestern,Active,false
+47,Beta Gamma,collegiate,Virginia State University,Virginia,Eastern,Active,false
+147,Beta Gamma Lambda,alumni,,Virginia,Eastern,Active,false
+53,Beta Iota,collegiate,Winston-Salem State University,North Carolina,Southern,Active,false
+153,Beta Iota Lambda,alumni,,Louisiana,Southwestern,Active,false
+54,Beta Kappa,collegiate,Langston University,Oklahoma,Southwestern,Active,false
+154,Beta Kappa Lambda,alumni,,South Carolina,Southern,Active,false
+102,Beta Lambda,alumni,,Missouri,Midwestern,Active,false
+55,Beta Mu,collegiate,Kentucky State University,Kentucky,Midwestern,Cease and Desist,false
+155,Beta Mu Lambda,alumni,,North Carolina,Southern,Active,false
+56,Beta Nu,collegiate,Florida A and M University,Florida,Southern,Active,false
+156,Beta Nu Lambda,alumni,,North Carolina,Southern,Active,false
+58,Beta Omicron,collegiate,Tennessee State University,Tennessee,Southern,Active,false
+158,Beta Omicron Lambda,alumni,,Alabama,Southern,Active,false
+64,Beta Phi,collegiate,Dillard University,Louisiana,Southwestern,Active,false
+164,Beta Phi Lambda,alumni,,Georgia,Southern,Active,false
+59,Beta Pi,collegiate,Lane College,Tennessee,Southern,Active,false
+159,Beta Pi Lambda,alumni,,New York,Eastern,Active,false
+66,Beta Psi,collegiate,Richmond University - The American University in London,International,Eastern,Inactive,false
+166,Beta Psi Lambda,alumni,,Southern California,Western,Active,false
+60,Beta Rho,collegiate,Shaw University,North Carolina,Southern,Active,false
+160,Beta Rho Lambda,alumni,,Ohio,Midwestern,Dechartered,true
+61,Beta Sigma,collegiate,Southern University & A&M College,Louisiana,Southwestern,Active,false
+161,Beta Sigma Lambda,alumni,,New England,Eastern,Active,false
+62,Beta Tau,collegiate,Xavier University of Louisiana,Louisiana,Southwestern,Active,false
+162,Beta Tau Lambda,alumni,,Texas,Southwestern,Active,false
+52,Beta Theta,collegiate,Bluefield State College,West Virginia,Midwestern,Dechartered,true
+152,Beta Theta Lambda,alumni,,North Carolina,Southern,Active,false
+63,Beta Upsilon,collegiate,Alabama State University,Alabama,Southern,Active,false
+163,Beta Upsilon Lambda,alumni,,Tennessee,Southern,Inactive,false
+57,Beta Xi,collegiate,Lemoyne - Owen College,Tennessee,Southern,Active,false
+157,Beta Xi Lambda,alumni,,Nebraska,Midwestern,Active,false
+50,Beta Zeta,collegiate,Elizabeth City State University,North Carolina,Southern,Active,false
+150,Beta Zeta Lambda,alumni,,Missouri,Midwestern,Active,false
+21,Chi,collegiate,Meharry Medical College,Tennessee,Southern,Active,false
+121,Chi Lambda,alumni,,Ohio,Midwestern,Active,false
+4,Delta,collegiate,Huston-Tillotson University,Texas,Southwestern,Active,false
+89,Delta Alpha,collegiate,Claflin College,South Carolina,Southern,Suspended,false
+189,Delta Alpha Lambda,alumni,,Ohio,Midwestern,Active,false
+90,Delta Beta,collegiate,Bethune-Cookman College,Florida,Southern,Active,false
+190,Delta Beta Lambda,alumni,,Virginia,Eastern,Active,false
+308,Delta Chi,collegiate,Brooklyn College,New York,Eastern,Inactive,false
+210,Delta Chi Lambda,alumni,,Wisconsin,Midwestern,Active,false
+92,Delta Delta,collegiate,Albany State University,Georgia,Southern,Active,false
+192,Delta Delta Lambda,alumni,,Florida,Southern,Active,false
+93,Delta Epsilon,collegiate,University of Buffalo,New York,Eastern,Active,false
+193,Delta Epsilon Lambda,alumni,,Illinois,Midwestern,Active,false
+95,Delta Eta,collegiate,Savannah State University,Georgia,Southern,Active,false
+195,Delta Eta Lambda,alumni,,Kansas,Midwestern,Active,false
+91,Delta Gamma,collegiate,Alabama A and M University,Alabama,Southern,Active,false
+191,Delta Gamma Lambda,alumni,,Ohio,Midwestern,Active,false
+97,Delta Iota,collegiate,Rutgers University,New Jersey,Eastern,Active,false
+197,Delta Iota Lambda,alumni,,Georgia,Southern,Active,false
+98,Delta Kappa,collegiate,Alcorn State University,Mississippi,Southern,Inactive,false
+198,Delta Kappa Lambda,alumni,,South Carolina,Southern,Active,false
+104,Delta Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+99,Delta Mu,collegiate,Wichita State University,Kansas,Midwestern,Inactive,false
+199,Delta Mu Lambda,alumni,,New Jersey,Eastern,Active,false
+100,Delta Nu,collegiate,University of Maryland Eastern Shore,"Washington DC, Maryland, Delaware",Eastern,Active,false
+200,Delta Nu Lambda,alumni,,Virginia,Eastern,Active,false
+301,Delta Omicron,collegiate,,Northern California,Western,Dechartered,true
+203,Delta Omicron Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+307,Delta Phi,collegiate,Jackson State University,Mississippi,Southern,Cease and Desist,false
+209,Delta Phi Lambda,alumni,,Alabama,Southern,Active,false
+302,Delta Pi,collegiate,Cheyney University of Pennsylvania,Pennsylvania,Eastern,Active,false
+204,Delta Pi Lambda,alumni,,Alabama,Southern,Active,false
+309,Delta Psi,collegiate,Florida Memorial College,Florida,Southern,Active,false
+211,Delta Psi Lambda,alumni,,Rocky Mountain (Colorado/Utah),Western,Active,false
+303,Delta Rho,collegiate,University of Missouri-Kansas City,Missouri,Midwestern,Active,false
+205,Delta Rho Lambda,alumni,,Texas,Southwestern,Active,false
+304,Delta Sigma,collegiate,Grambling State University,Louisiana,Southwestern,Active,false
+206,Delta Sigma Lambda,alumni,,Arkansas,Southwestern,Active,false
+305,Delta Tau,collegiate,Saint Paul's College,Virginia,Eastern,Dechartered,true
+207,Delta Tau Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Active,false
+96,Delta Theta,collegiate,Texas Southern University,Texas,Southwestern,Active,false
+196,Delta Theta Lambda,alumni,,Alabama,Southern,Active,false
+306,Delta Upsilon,collegiate,Miami University - Oxford,Ohio,Midwestern,Active,false
+208,Delta Upsilon Lambda,alumni,,Louisiana,Southwestern,Active,false
+300,Delta Xi,collegiate,Central State University,Ohio,Midwestern,Active,false
+202,Delta Xi Lambda,alumni,,Florida,Southern,Active,false
+94,Delta Zeta,collegiate,Syracuse University,New York,Eastern,Active,false
+194,Delta Zeta Lambda,alumni,,South Carolina,Southern,Active,false
+5,Epsilon,collegiate,University of Michigan-Ann Arbor,Michigan,Midwestern,Active,false
+310,Epsilon Alpha,collegiate,University of Toledo,Ohio,Midwestern,Active,false
+212,Epsilon Alpha Lambda,alumni,,Arkansas,Southwestern,Active,false
+311,Epsilon Beta,collegiate,California State University - Fresno,Northern California,Western,Inactive,false
+213,Epsilon Beta Lambda,alumni,,Georgia,Southern,Active,false
+330,Epsilon Chi,collegiate,University of Kentucky,Kentucky,Midwestern,Active,false
+232,Epsilon Chi Lambda,alumni,,North Carolina,Southern,Active,false
+313,Epsilon Delta,collegiate,Kent State University,Ohio,Midwestern,Active,false
+215,Epsilon Delta Lambda,alumni,,Alabama,Southern,Active,false
+314,Epsilon Epsilon,collegiate,Oklahoma State University,Oklahoma,Southwestern,Active,false
+216,Epsilon Epsilon Lambda,alumni,,Texas,Southwestern,Active,false
+316,Epsilon Eta,collegiate,Eastern Michigan University,Michigan,Midwestern,Active,false
+218,Epsilon Eta Lambda,alumni,,Missouri,Midwestern,Dechartered,true
+312,Epsilon Gamma,collegiate,,Texas,Southwestern,Dechartered,true
+214,Epsilon Gamma Lambda,alumni,,New England,Eastern,Active,false
+318,Epsilon Iota,collegiate,University of Texas - Austin,Texas,Southwestern,Active,false
+220,Epsilon Iota Lambda,alumni,,Virginia,Eastern,Active,false
+319,Epsilon Kappa,collegiate,Bradley University,Illinois,Midwestern,Active,false
+221,Epsilon Kappa Lambda,alumni,,Louisiana,Southwestern,Active,false
+105,Epsilon Lambda,alumni,,Missouri,Midwestern,Active,false
+320,Epsilon Mu,collegiate,San Jose State University,Northern California,Western,Active,false
+222,Epsilon Mu Lambda,alumni,,Florida,Southern,Active,false
+321,Epsilon Nu,collegiate,Stillman College,Alabama,Southern,Active,false
+223,Epsilon Nu Lambda,alumni,,Virginia,Eastern,Active,false
+323,Epsilon Omicron,collegiate,,Kansas,Midwestern,Dechartered,true
+225,Epsilon Omicron Lambda,alumni,,Virginia,Eastern,Active,false
+329,Epsilon Phi,collegiate,Northern Illinois University,Illinois,Midwestern,Active,false
+231,Epsilon Phi Lambda,alumni,,Texas,Southwestern,Active,false
+324,Epsilon Pi,collegiate,Norfolk State University,Virginia,Eastern,Active,false
+226,Epsilon Pi Lambda,alumni,,Florida,Southern,Active,false
+331,Epsilon Psi,collegiate,Missouri University of Science and Technology,Missouri,Midwestern,Active,false
+233,Epsilon Psi Lambda,alumni,,Louisiana,Southwestern,Active,false
+325,Epsilon Rho,collegiate,Lamar University,Texas,Southwestern,Active,false
+227,Epsilon Rho Lambda,alumni,,North Carolina,Southern,Active,false
+326,Epsilon Sigma,collegiate,University of Texas-San Antonio,Texas,Southwestern,Inactive,false
+228,Epsilon Sigma Lambda,alumni,,North Carolina,Southern,Active,false
+327,Epsilon Tau,collegiate,University of Wisconsin-Milwaukee,Wisconsin,Midwestern,Active,false
+229,Epsilon Tau Lambda,alumni,,Texas,Southwestern,Active,false
+317,Epsilon Theta,collegiate,Bowling Green State University,Ohio,Midwestern,Active,false
+219,Epsilon Theta Lambda,alumni,,International,Eastern,Active,false
+328,Epsilon Upsilon,collegiate,Southern University - New Orleans,Louisiana,Southwestern,Active,false
+230,Epsilon Upsilon Lambda,alumni,,Michigan,Midwestern,Active,false
+322,Epsilon Xi,collegiate,Western Michigan University,Michigan,Midwestern,Active,false
+224,Epsilon Xi Lambda,alumni,,Mississippi,Southern,Active,false
+315,Epsilon Zeta,collegiate,Fayetteville State University,North Carolina,Southern,Active,false
+217,Epsilon Zeta Lambda,alumni,,Great Northwest,Western,Active,false
+7,Eta,collegiate,Columbia University,New York,Eastern,Active,false
+354,Eta Alpha,collegiate,Paine College,Georgia,Southern,Active,false
+256,Eta Alpha Lambda,alumni,,New England,Eastern,Active,false
+355,Eta Beta,collegiate,,Wisconsin,Midwestern,Dechartered,true
+257,Eta Beta Lambda,alumni,,Kansas,Midwestern,Inactive,false
+374,Eta Chi,collegiate,University of Louisiana at Monroe,Louisiana,Southwestern,Cease and Desist,false
+276,Eta Chi Lambda,alumni,,New York,Eastern,Active,false
+357,Eta Delta,collegiate,University of Miami,Florida,Southern,Active,false
+259,Eta Delta Lambda,alumni,,Louisiana,Southwestern,Active,false
+358,Eta Epsilon,collegiate,University of N Texas,Texas,Southwestern,Active,false
+260,Eta Epsilon Lambda,alumni,,International,Eastern,Inactive,false
+360,Eta Eta,collegiate,Western Illinois University,Illinois,Midwestern,Active,false
+262,Eta Eta Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+356,Eta Gamma,collegiate,Prairie View A&M University,Texas,Southwestern,Active,false
+258,Eta Gamma Lambda,alumni,,Louisiana,Southwestern,Active,false
+362,Eta Iota,collegiate,Voorhees University,South Carolina,Southern,Active,false
+264,Eta Iota Lambda,alumni,,Georgia,Southern,Active,false
+363,Eta Kappa,collegiate,Louisiana Tech University,Louisiana,Southwestern,Active,false
+265,Eta Kappa Lambda,alumni,,Florida,Southern,Active,false
+107,Eta Lambda,alumni,,Georgia,Southern,Active,false
+364,Eta Mu,collegiate,University of Houston,Texas,Southwestern,Active,false
+266,Eta Mu Lambda,alumni,,North Carolina,Southern,Active,false
+365,Eta Nu,collegiate,East Carolina University,North Carolina,Southern,Active,false
+267,Eta Nu Lambda,alumni,,Michigan,Midwestern,Active,false
+367,Eta Omicron,collegiate,N Carolina State University,North Carolina,Southern,Active,false
+269,Eta Omicron Lambda,alumni,,South Carolina,Southern,Active,false
+373,Eta Phi,collegiate,"University of Tennessee, Chattanooga",Tennessee,Southern,Active,false
+275,Eta Phi Lambda,alumni,,Mississippi,Southern,Active,false
+368,Eta Pi,collegiate,University of Wisconsin-Oshkosh,Wisconsin,Midwestern,Active,false
+270,Eta Pi Lambda,alumni,,Southern California,Western,Active,false
+375,Eta Psi,collegiate,Texas Christian University,Texas,Southwestern,Inactive,false
+277,Eta Psi Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Active,false
+369,Eta Rho,collegiate,Western Kentucky University,Kentucky,Midwestern,Active,false
+271,Eta Rho Lambda,alumni,,New York,Eastern,Active,false
+370,Eta Sigma,collegiate,San Diego State University,Southern California,Western,Active,false
+272,Eta Sigma Lambda,alumni,,Northern California,Western,Active,false
+371,Eta Tau,collegiate,Illinois State University,Illinois,Midwestern,Active,false
+273,Eta Tau Lambda,alumni,,Ohio,Midwestern,Active,false
+361,Eta Theta,collegiate,,Oklahoma,Southwestern,Dechartered,true
+263,Eta Theta Lambda,alumni,,New York,Eastern,Active,false
+372,Eta Upsilon,collegiate,Texas Tech University,Texas,Southwestern,Active,false
+274,Eta Upsilon Lambda,alumni,,Arkansas,Southwestern,Active,false
+366,Eta Xi,collegiate,,Michigan,Midwestern,Dechartered,true
+268,Eta Xi Lambda,alumni,,Oklahoma,Southwestern,Active,false
+359,Eta Zeta,collegiate,Bowie State University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+261,Eta Zeta Lambda,alumni,,New York,Eastern,Active,false
+3,Gamma,collegiate,Virginia Union University,Virginia,Eastern,Active,false
+67,Gamma Alpha,collegiate,Texas College,Texas,Southwestern,Active,false
+167,Gamma Alpha Lambda,alumni,,Virginia,Eastern,Active,false
+68,Gamma Beta,collegiate,N Carolina Central University,North Carolina,Southern,Active,false
+168,Gamma Beta Lambda,alumni,,Kentucky,Midwestern,Dechartered,true
+87,Gamma Chi,collegiate,Pittsburg State University,Kansas,Midwestern,Active,false
+187,Gamma Chi Lambda,alumni,,Northern California,Western,Active,false
+70,Gamma Delta,collegiate,University of Arkansas - Pine Bluff,Arkansas,Southwestern,Active,false
+170,Gamma Delta Lambda,alumni,,,Midwestern,Dechartered,true
+71,Gamma Epsilon,collegiate,University of Wisconsin-Madison,Wisconsin,Midwestern,Active,false
+171,Gamma Epsilon Lambda,alumni,,Kentucky,Midwestern,Dechartered,true
+73,Gamma Eta,collegiate,Indiana University,Indiana,Midwestern,Inactive,false
+173,Gamma Eta Lambda,alumni,,Texas,Southwestern,Active,false
+69,Gamma Gamma,collegiate,Allen University,South Carolina,Southern,Active,false
+169,Gamma Gamma Lambda,alumni,,South Carolina,Southern,Active,false
+75,Gamma Iota,collegiate,Hampton University,Virginia,Eastern,Active,false
+175,Gamma Iota Lambda,alumni,,New York,Eastern,Active,false
+76,Gamma Kappa,collegiate,Miles College,Alabama,Southern,Active,false
+176,Gamma Kappa Lambda,alumni,,North Carolina,Southern,Active,false
+103,Gamma Lambda,alumni,,Michigan,Midwestern,Active,false
+77,Gamma Mu,collegiate,Livingstone College,North Carolina,Southern,Active,false
+177,Gamma Mu Lambda,alumni,,Florida,Southern,Active,false
+78,Gamma Nu,collegiate,Penn State University,Pennsylvania,Eastern,Active,false
+178,Gamma Nu Lambda,alumni,,Virginia,Eastern,Active,false
+80,Gamma Omicron,collegiate,,Tennessee,Southern,Dechartered,true
+180,Gamma Omicron Lambda,alumni,,Georgia,Southern,Active,false
+86,Gamma Phi,collegiate,Tuskegee University,Alabama,Southern,Cease and Desist,false
+186,Gamma Phi Lambda,alumni,,Northern California,Western,Active,false
+81,Gamma Pi,collegiate,Benedict College,South Carolina,Southern,Active,false
+181,Gamma Pi Lambda,alumni,,Texas,Southwestern,Active,false
+88,Gamma Psi,collegiate,Saint Augustine's College,North Carolina,Southern,Inactive,false
+188,Gamma Psi Lambda,alumni,,North Carolina,Southern,Dechartered,true
+82,Gamma Rho,collegiate,Purdue University,Indiana,Midwestern,Active,false
+182,Gamma Rho Lambda,alumni,,Indiana,Midwestern,Active,false
+83,Gamma Sigma,collegiate,Delaware State University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+183,Gamma Sigma Lambda,alumni,,Georgia,Southern,Active,false
+84,Gamma Tau,collegiate,,Michigan,Midwestern,Dechartered,true
+184,Gamma Tau Lambda,alumni,,Texas,Southwestern,Active,false
+74,Gamma Theta,collegiate,University of Dayton,Ohio,Midwestern,Active,false
+174,Gamma Theta Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+85,Gamma Upsilon,collegiate,Tougaloo College,Mississippi,Southern,Active,false
+185,Gamma Upsilon Lambda,alumni,,Texas,Southwestern,Active,false
+79,Gamma Xi,collegiate,University of California - Los Angeles,Southern California,Western,Active,false
+179,Gamma Xi Lambda,alumni,,Minnesota,Midwestern,Active,false
+72,Gamma Zeta,collegiate,Fort Valley State University,Georgia,Southern,Active,false
+172,Gamma Zeta Lambda,alumni,,Florida,Southern,Active,false
+201,General Organization,alumni,,District 700,Region 7,Active,false
+9,Iota,collegiate,Morris Brown College,Georgia,Southern,Active,false
+398,Iota Alpha,collegiate,George Mason University,Virginia,Eastern,Active,false
+502,Iota Alpha Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+399,Iota Beta,collegiate,University of Virginia,Virginia,Eastern,Active,false
+503,Iota Beta Lambda,alumni,,Florida,Southern,Active,false
+418,Iota Chi,collegiate,,Southern California,Western,Dechartered,true
+522,Iota Chi Lambda,alumni,,Michigan,Midwestern,Active,false
+401,Iota Delta,collegiate,Florida State University,Florida,Southern,Active,false
+505,Iota Delta Lambda,alumni,,Illinois,Midwestern,Active,false
+402,Iota Epsilon,collegiate,Grand Valley State University,Michigan,Midwestern,Active,false
+506,Iota Epsilon Lambda,alumni,,Florida,Southern,Active,false
+404,Iota Eta,collegiate,Mercer University,Georgia,Southern,Active,false
+508,Iota Eta Lambda,alumni,,South Carolina,Southern,Inactive,false
+400,Iota Gamma,collegiate,,Mississippi,Southern,Dechartered,true
+504,Iota Gamma Lambda,alumni,,Georgia,Southern,Dechartered,true
+406,Iota Iota,collegiate,The College of New Jersey,New Jersey,Eastern,Active,false
+510,Iota Iota Lambda,alumni,,New York,Eastern,Active,false
+407,Iota Kappa,collegiate,Paul Quinn College,Texas,Southwestern,Active,false
+511,Iota Kappa Lambda,alumni,,New York,Eastern,Inactive,false
+109,Iota Lambda,alumni,,Indiana,Midwestern,Active,false
+408,Iota Mu,collegiate,Stephen F. Austin State University,Texas,Southwestern,Active,false
+512,Iota Mu Lambda,alumni,,Great Northwest,Western,Active,false
+409,Iota Nu,collegiate,"University of Alabama, Birmingham",Alabama,Southern,Active,false
+513,Iota Nu Lambda,alumni,,Northern California,Western,Active,false
+411,Iota Omicron,collegiate,,Texas,Southwestern,Dechartered,true
+515,Iota Omicron Lambda,alumni,,Rocky Mountain (Colorado/Utah),Western,Active,false
+417,Iota Phi,collegiate,,Ohio,Midwestern,Dechartered,true
+521,Iota Phi Lambda,alumni,,Michigan,Midwestern,Dechartered,true
+412,Iota Pi,collegiate,Southern Illinois University - Edwardsville,Illinois,Midwestern,Active,false
+516,Iota Pi Lambda,alumni,,Florida,Southern,Active,false
+419,Iota Psi,collegiate,California State Polytechnic University,Southern California,Western,Active,false
+523,Iota Psi Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Active,false
+413,Iota Rho,collegiate,Rutgers University-Newark,New Jersey,Eastern,Active,false
+517,Iota Rho Lambda,alumni,,Michigan,Midwestern,Active,false
+414,Iota Sigma,collegiate,Millersville University,Pennsylvania,Eastern,Inactive,false
+518,Iota Sigma Lambda,alumni,,Florida,Southern,Active,false
+415,Iota Tau,collegiate,Washington State University,Great Northwest,Western,Active,false
+519,Iota Tau Lambda,alumni,,Virginia,Eastern,Dechartered,true
+405,Iota Theta,collegiate,,Indiana,Midwestern,Dechartered,true
+509,Iota Theta Lambda,alumni,,New York,Eastern,Active,false
+416,Iota Upsilon,collegiate,Utah State University,Rocky Mountain (Colorado/Utah),Western,Dechartered,true
+520,Iota Upsilon Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+410,Iota Xi,collegiate,Truman State University,Missouri,Midwestern,Active,false
+514,Iota Xi Lambda,alumni,,Louisiana,Southwestern,Active,false
+403,Iota Zeta,collegiate,University of Maryland at College Park,"Washington DC, Maryland, Delaware",Eastern,Active,false
+507,Iota Zeta Lambda,alumni,,Southern California,Western,Active,false
+10,Kappa,collegiate,Ohio State University,Ohio,Midwestern,Active,false
+420,Kappa Alpha,collegiate,University of Alabama - Tuscaloosa,Alabama,Southern,Active,false
+524,Kappa Alpha Lambda,alumni,,Northern California,Western,Inactive,false
+421,Kappa Beta,collegiate,Mississippi State University,Mississippi,Southern,Active,false
+525,Kappa Beta Lambda,alumni,,Pennsylvania,Eastern,Active,false
+440,Kappa Chi,collegiate,Francis Marion University,South Carolina,Southern,Active,false
+544,Kappa Chi Lambda,alumni,,Illinois,Midwestern,Active,false
+423,Kappa Delta,collegiate,University of Connecticut,New England,Eastern,Active,false
+527,Kappa Delta Lambda,alumni,,Michigan,Midwestern,Active,false
+424,Kappa Epsilon,collegiate,Cameron University,Oklahoma,Southwestern,Inactive,false
+528,Kappa Epsilon Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+530,Kappa Eta Lambda,alumni,,Southern California,Western,Active,false
+422,Kappa Gamma,collegiate,University of North Alabama,Alabama,Southern,Inactive,false
+526,Kappa Gamma Lambda,alumni,,Arkansas,Southwestern,Active,false
+428,Kappa Iota,collegiate,Southern Arkansas University,Arkansas,Southwestern,Active,false
+532,Kappa Iota Lambda,alumni,,New Jersey,Eastern,Active,false
+429,Kappa Kappa,collegiate,"University of Arkansas, Fayetteville",Arkansas,Southwestern,Active,false
+533,Kappa Kappa Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Dechartered,true
+110,Kappa Lambda,alumni,,North Carolina,Southern,Active,false
+430,Kappa Mu,collegiate,Nicholls State University,Louisiana,Southwestern,Active,false
+534,Kappa Mu Lambda,alumni,,Ohio,Midwestern,Dechartered,true
+431,Kappa Nu,collegiate,Southeastern Louisiana University,Louisiana,Southwestern,Active,false
+535,Kappa Nu Lambda,alumni,,Alabama,Southern,Active,false
+433,Kappa Omicron,collegiate,Duke University,North Carolina,Southern,Active,false
+537,Kappa Omicron Lambda,alumni,,Northern California,Western,Active,false
+439,Kappa Phi,collegiate,,International,Eastern,Dechartered,true
+543,Kappa Phi Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+434,Kappa Pi,collegiate,College of William and Mary,Virginia,Eastern,Active,false
+538,Kappa Pi Lambda,alumni,,Illinois,Midwestern,Active,false
+441,Kappa Psi,collegiate,"University of Arkansas, Little Rock",Arkansas,Southwestern,Active,false
+545,Kappa Psi Lambda,alumni,,Michigan,Midwestern,Active,false
+435,Kappa Rho,collegiate,Queens College of the City University of New York,New York,Eastern,Inactive,false
+539,Kappa Rho Lambda,alumni,,Indiana,Midwestern,Inactive,false
+436,Kappa Sigma,collegiate,,Texas,Southwestern,Dechartered,true
+540,Kappa Sigma Lambda,alumni,,Texas,Southwestern,Active,false
+437,Kappa Tau,collegiate,Kansas State University,Kansas,Midwestern,Active,false
+541,Kappa Tau Lambda,alumni,,Georgia,Southern,Active,false
+427,Kappa Theta,collegiate,Vanderbilt University,Tennessee,Southern,Active,false
+531,Kappa Theta Lambda,alumni,,New Jersey,Eastern,Active,false
+438,Kappa Upsilon,collegiate,Edward Waters College,Florida,Southern,Active,false
+542,Kappa Upsilon Lambda,alumni,,New York,Eastern,Inactive,false
+432,Kappa Xi,collegiate,Middle Tennessee State University,Tennessee,Southern,Active,false
+536,Kappa Xi Lambda,alumni,,New York,Eastern,Active,false
+425,Kappa Zeta,collegiate,Pace University,New York,Eastern,Cease and Desist,false
+529,Kappa Zeta Lambda,alumni,,Tennessee,Southern,Active,false
+11,Mu,collegiate,University of Minnesota,Minnesota,Midwestern,Active,false
+442,Mu Alpha,collegiate,Emory University,Georgia,Southern,Inactive,false
+546,Mu Alpha Lambda,alumni,,Illinois,Midwestern,Active,false
+443,Mu Beta,collegiate,,Tennessee,Southern,Dechartered,true
+547,Mu Beta Lambda,alumni,,Southern California,Western,Active,false
+462,Mu Chi,collegiate,California State University - Long Beach,Southern California,Western,Active,false
+566,Mu Chi Lambda,alumni,,Illinois,Midwestern,Inactive,false
+445,Mu Delta,collegiate,Georgia Southwestern State University,Georgia,Southern,Active,false
+549,Mu Delta Lambda,alumni,,Illinois,Midwestern,Active,false
+446,Mu Epsilon,collegiate,,Wisconsin,Midwestern,Dechartered,true
+550,Mu Epsilon Lambda,alumni,,South Carolina,Southern,Active,false
+448,Mu Eta,collegiate,Arizona State University,"Arizona, Nevada, New Mexico",Western,Active,false
+552,Mu Eta Lambda,alumni,,Wisconsin,Midwestern,Active,false
+444,Mu Gamma,collegiate,Georgia College & State University,Georgia,Southern,Active,false
+548,Mu Gamma Lambda,alumni,,Mississippi,Southern,Active,false
+450,Mu Iota,collegiate,"University of Tennessee, Knoxville",Tennessee,Southern,Inactive,false
+554,Mu Iota Lambda,alumni,,Alabama,Southern,Dechartered,true
+451,Mu Kappa,collegiate,University of California - Santa Barbara,Southern California,Western,Inactive,false
+555,Mu Kappa Lambda,alumni,,Illinois,Midwestern,Active,false
+111,Mu Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+452,Mu Mu,collegiate,Elmhurst University,Illinois,Midwestern,Active,false
+556,Mu Mu Lambda,alumni,,Illinois,Midwestern,Active,false
+453,Mu Nu,collegiate,Texas State University - San Marcos,Texas,Southwestern,Active,false
+557,Mu Nu Lambda,alumni,,Tennessee,Southern,Dechartered,true
+455,Mu Omicron,collegiate,Valdosta State University,Georgia,Southern,Inactive,false
+559,Mu Omicron Lambda,alumni,,Arkansas,Southwestern,Inactive,false
+461,Mu Phi,collegiate,University of Bridgeport,New England,Eastern,Inactive,false
+565,Mu Phi Lambda,alumni,,Southern California,Western,Active,false
+456,Mu Pi,collegiate,Charleston Southern University,South Carolina,Southern,Active,false
+560,Mu Pi Lambda,alumni,,Mississippi,Southern,Active,false
+463,Mu Psi,collegiate,Southern Connecticut State University,New England,Eastern,Dechartered,true
+567,Mu Psi Lambda,alumni,,Alabama,Southern,Active,false
+457,Mu Rho,collegiate,Towson University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+561,Mu Rho Lambda,alumni,,Texas,Southwestern,Active,false
+458,Mu Sigma,collegiate,University of Rochester,New York,Eastern,Active,false
+562,Mu Sigma Lambda,alumni,,Southern California,Western,Active,false
+459,Mu Tau,collegiate,University of NC at Charlotte,North Carolina,Southern,Active,false
+563,Mu Tau Lambda,alumni,,Iowa,Midwestern,Dechartered,true
+449,Mu Theta,collegiate,University of West Florida,Florida,Southern,Active,false
+553,Mu Theta Lambda,alumni,,New England,Eastern,Inactive,false
+460,Mu Upsilon,collegiate,Frostburg State University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+564,Mu Upsilon Lambda,alumni,,Rocky Mountain (Colorado/Utah),Western,Dechartered,true
+454,Mu Xi,collegiate,University of Southern Mississippi,Mississippi,Southern,Active,false
+558,Mu Xi Lambda,alumni,,Southern California,Western,Active,false
+447,Mu Zeta,collegiate,University of NC at Chapel Hill,North Carolina,Southern,Active,false
+551,Mu Zeta Lambda,alumni,,Florida,Southern,Active,false
+12,Nu,collegiate,Lincoln University,Pennsylvania,Eastern,Active,false
+464,Nu Alpha,collegiate,Arkansas Tech University,Arkansas,Southwestern,Active,false
+568,Nu Alpha Lambda,alumni,,Louisiana,Southwestern,Active,false
+465,Nu Beta,collegiate,George Washington University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+569,Nu Beta Lambda,alumni,,Northern California,Western,Inactive,false
+484,Nu Chi,collegiate,University of the Pacific,Northern California,Western,Dechartered,true
+588,Nu Chi Lambda,alumni,,Iowa,Midwestern,Active,false
+467,Nu Delta,collegiate,Chicago State University,Illinois,Midwestern,Active,false
+571,Nu Delta Lambda,alumni,,Virginia,Eastern,Active,false
+468,Nu Epsilon,collegiate,Lewis University,Illinois,Midwestern,Inactive,false
+572,Nu Epsilon Lambda,alumni,,Great Northwest,Western,Active,false
+470,Nu Eta,collegiate,Rhodes College,Tennessee,Southern,Active,false
+574,Nu Eta Lambda,alumni,,Florida,Southern,Active,false
+466,Nu Gamma,collegiate,,Georgia,Southern,Dechartered,true
+570,Nu Gamma Lambda,alumni,,New Jersey,Eastern,Active,false
+472,Nu Iota,collegiate,Rowan University,New Jersey,Eastern,Active,false
+576,Nu Iota Lambda,alumni,,North Carolina,Southern,Active,false
+473,Nu Kappa,collegiate,"University of Maryland, Baltimore County","Washington DC, Maryland, Delaware",Eastern,Active,false
+577,Nu Kappa Lambda,alumni,,North Carolina,Southern,Dechartered,true
+112,Nu Lambda,alumni,,Virginia,Eastern,Active,false
+474,Nu Mu,collegiate,Georgia Inst of Tech,Georgia,Southern,Active,false
+578,Nu Mu Lambda,alumni,,Georgia,Southern,Active,false
+475,Nu Nu,collegiate,Marshall University,West Virginia,Midwestern,Active,false
+579,Nu Nu Lambda,alumni,,Indiana,Midwestern,Dechartered,true
+477,Nu Omicron,collegiate,,Wisconsin,Midwestern,Dechartered,true
+581,Nu Omicron Lambda,alumni,,Virginia,Eastern,Active,false
+483,Nu Phi,collegiate,Coastal Carolina University,South Carolina,Southern,Active,false
+587,Nu Phi Lambda,alumni,,Southern California,Western,Active,false
+478,Nu Pi,collegiate,University of Evansville,Indiana,Midwestern,Dechartered,true
+582,Nu Pi Lambda,alumni,,Texas,Southwestern,Active,false
+485,Nu Psi,collegiate,Louisiana State University,Louisiana,Southwestern,Probation,false
+589,Nu Psi Lambda,alumni,,Illinois,Midwestern,Active,false
+479,Nu Rho,collegiate,DePaul University,Illinois,Midwestern,Active,false
+583,Nu Rho Lambda,alumni,,Michigan,Midwestern,Dechartered,true
+480,Nu Sigma,collegiate,Stanford University,Northern California,Western,Active,false
+584,Nu Sigma Lambda,alumni,,Texas,Southwestern,Active,false
+481,Nu Tau,collegiate,University of Montevallo,Alabama,Southern,Active,false
+585,Nu Tau Lambda,alumni,,Southern California,Western,Active,false
+471,Nu Theta,collegiate,Old Dominion University,Virginia,Eastern,Active,false
+575,Nu Theta Lambda,alumni,,Louisiana,Southwestern,Active,false
+482,Nu Upsilon,collegiate,University of Mississippi,Mississippi,Southern,Active,false
+586,Nu Upsilon Lambda,alumni,,Pennsylvania,Eastern,Dechartered,true
+476,Nu Xi,collegiate,Marquette University,Wisconsin,Midwestern,Dechartered,true
+580,Nu Xi Lambda,alumni,,New England,Eastern,Dechartered,true
+469,Nu Zeta,collegiate,Western Carolina University,North Carolina,Southern,Active,false
+573,Nu Zeta Lambda,alumni,,Great Northwest,Western,Inactive,false
+"10,000",Omega,alumni,,District 700,Region 7,Active,false
+14,Omicron,collegiate,University of Pittsburgh,Pennsylvania,Eastern,Active,false
+708,Omicron Alpha,collegiate,,Alabama,Southern,Dechartered,true
+612,Omicron Alpha Lambda,alumni,,Virginia,Eastern,Active,false
+709,Omicron Beta,collegiate,Wesleyan University,North Carolina,Southern,Inactive,false
+613,Omicron Beta Lambda,alumni,,Florida,Southern,Active,false
+728,Omicron Chi,collegiate,Wofford College,South Carolina,Southern,Active,false
+632,Omicron Chi Lambda,alumni,,,Southwestern,Dechartered,true
+711,Omicron Delta,collegiate,,"Arizona, Nevada, New Mexico",Western,Dechartered,true
+615,Omicron Delta Lambda,alumni,,Pennsylvania,Eastern,Active,false
+712,Omicron Epsilon,collegiate,Youngstown State University,Ohio,Midwestern,Active,false
+616,Omicron Epsilon Lambda,alumni,,Texas,Southwestern,Active,false
+714,Omicron Eta,collegiate,,Southern California,Western,Dechartered,true
+618,Omicron Eta Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+710,Omicron Gamma,collegiate,Millsaps College,Mississippi,Southern,Active,false
+614,Omicron Gamma Lambda,alumni,,North Carolina,Southern,Dechartered,true
+716,Omicron Iota,collegiate,DePaul University,Illinois,Midwestern,Dechartered,true
+620,Omicron Iota Lambda,alumni,,South Carolina,Southern,Active,false
+717,Omicron Kappa,collegiate,Auburn University,Alabama,Southern,Suspended,false
+621,Omicron Kappa Lambda,alumni,,South Carolina,Southern,Active,false
+114,Omicron Lambda,alumni,,Alabama,Southern,Active,false
+500,Omicron Lambda Alpha,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+501,Omicron Lambda Beta,alumni,,Illinois,Midwestern,Dechartered,true
+718,Omicron Mu,collegiate,,Michigan,Midwestern,Dechartered,true
+622,Omicron Mu Lambda,alumni,,Georgia,Southern,Active,false
+719,Omicron Nu,collegiate,University of Tulsa,Oklahoma,Southwestern,Dechartered,true
+623,Omicron Nu Lambda,alumni,,Kentucky,Midwestern,Active,false
+721,Omicron Omicron,collegiate,University of DC,"Washington DC, Maryland, Delaware",Eastern,Active,false
+625,Omicron Omicron Lambda,alumni,,Georgia,Southern,Dechartered,true
+727,Omicron Phi,collegiate,Tennessee Technological University,Tennessee,Southern,Active,false
+631,Omicron Phi Lambda,alumni,,Georgia,Southern,Active,false
+722,Omicron Pi,collegiate,Iowa State University,Iowa,Midwestern,Inactive,false
+626,Omicron Pi Lambda,alumni,,Georgia,Southern,Dechartered,true
+729,Omicron Psi,collegiate,Delta State University,Mississippi,Southern,Active,false
+633,Omicron Psi Lambda,alumni,,Louisiana,Southwestern,Active,false
+723,Omicron Rho,collegiate,Ohio Wesleyan University,Ohio,Midwestern,Active,false
+627,Omicron Rho Lambda,alumni,,Mississippi,Southern,Active,false
+724,Omicron Sigma,collegiate,Birmingham Southern College,Alabama,Southern,Dechartered,true
+628,Omicron Sigma Lambda,alumni,,Tennessee,Southern,Active,false
+725,Omicron Tau,collegiate,Colorado State University,Rocky Mountain (Colorado/Utah),Western,Active,false
+629,Omicron Tau Lambda,alumni,,South Carolina,Southern,Active,false
+715,Omicron Theta,collegiate,University of NC at Wilmington,North Carolina,Southern,Active,false
+619,Omicron Theta Lambda,alumni,,Northern California,Western,Active,false
+726,Omicron Upsilon,collegiate,Rensselaer Polytechnic Inst,New York,Eastern,Active,false
+630,Omicron Upsilon Lambda,alumni,,Florida,Southern,Active,false
+720,Omicron Xi,collegiate,Roosevelt University,Illinois,Midwestern,Active,false
+624,Omicron Xi Lambda,alumni,,Missouri,Midwestern,Active,false
+713,Omicron Zeta,collegiate,Fairleigh Dickinson University,New Jersey,Eastern,Inactive,false
+617,Omicron Zeta Lambda,alumni,,Arkansas,Southwestern,Active,false
+20,Phi,collegiate,Ohio University,Ohio,Midwestern,Inactive,false
+847,Phi Alpha,collegiate,Virginia Wesleyan University,Virginia,Eastern,Inactive,false
+848,Phi Beta,collegiate,"University of Nevada, Reno","Arizona, Nevada, New Mexico",Western,Active,false
+900,Phi Chi,alumni,,"Washington DC, Maryland, Delaware",Eastern,Inactive,false
+850,Phi Delta,collegiate,Johnson & Wales University,North Carolina,Southern,Inactive,false
+851,Phi Epsilon,collegiate,University of Southern Indiana,Indiana,Midwestern,Inactive,false
+854,Phi Eta,collegiate,Seton Hall University,New Jersey,Eastern,Active,false
+849,Phi Gamma,collegiate,Methodist University,North Carolina,Southern,Active,false
+856,Phi Iota,collegiate,McDaniel College,"Washington DC, Maryland, Delaware",Eastern,Active,false
+857,Phi Kappa,collegiate,Iona College,New York,Eastern,Inactive,false
+120,Phi Lambda,alumni,,North Carolina,Southern,Active,false
+864,Phi Mu,collegiate,University of Bahamas,Florida,Southern,Active,false
+865,Phi Nu,collegiate,National Louis University,Illinois,Midwestern,Active,false
+879,Phi Omicron,collegiate,Buffalo State College,New York,Eastern,Active,false
+896,Phi Phi,collegiate,Chapman University,Southern California,Western,Provisional/College,false
+880,Phi Pi,collegiate,High Point University,North Carolina,Southern,Active,false
+881,Phi Rho,collegiate,Northeastern Illinois University,Illinois,Midwestern,Active,false
+882,Phi Sigma,collegiate,California State University,Southern California,Western,Active,false
+883,Phi Tau,collegiate,Gordon State College,Georgia,Southern,Provisional/College,false
+855,Phi Theta,collegiate,Stevens Institute of Technology,New Jersey,Eastern,Active,false
+888,Phi Upsilon,collegiate,University of LaVerne,Southern California,Western,Active,false
+866,Phi Xi,collegiate,Georgia Gwinnett College,Georgia,Southern,Active,false
+853,Phi Zeta,collegiate,Radford University,Virginia,Eastern,Active,false
+15,Pi,collegiate,Case Western Reserve University,Ohio,Midwestern,Active,false
+730,Pi Alpha,collegiate,Clemson University,South Carolina,Southern,Active,false
+634,Pi Alpha Lambda,alumni,,Texas,Southwestern,Active,false
+731,Pi Beta,collegiate,Suny at Binghamton,New York,Eastern,Active,false
+635,Pi Beta Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Dechartered,true
+750,Pi Chi,collegiate,Eastern New Mexico University,"Arizona, Nevada, New Mexico",Western,Dechartered,true
+654,Pi Chi Lambda,alumni,,North Carolina,Southern,Dechartered,true
+733,Pi Delta,collegiate,University of West Alabama,Alabama,Southern,Active,false
+637,Pi Delta Lambda,alumni,,South Carolina,Southern,Active,false
+734,Pi Epsilon,collegiate,"Cal State University, San Bernadino",Southern California,Western,Suspended,false
+638,Pi Epsilon Lambda,alumni,,Alabama,Southern,Inactive,false
+736,Pi Eta,collegiate,New Mexico State University,"Arizona, Nevada, New Mexico",Western,Dechartered,true
+640,Pi Eta Lambda,alumni,,Georgia,Southern,Active,false
+732,Pi Gamma,collegiate,Sacramento State University,Northern California,Western,Active,false
+636,Pi Gamma Lambda,alumni,,Georgia,Southern,Active,false
+738,Pi Iota,collegiate,,Illinois,Midwestern,Dechartered,true
+642,Pi Iota Lambda,alumni,,Georgia,Southern,Inactive,false
+739,Pi Kappa,collegiate,"Cal State University, Northridge",Southern California,Western,Active,false
+643,Pi Kappa Lambda,alumni,,,Southwestern,Dechartered,true
+115,Pi Lambda,alumni,,Arkansas,Southwestern,Active,false
+740,Pi Mu,collegiate,West Virginia University,West Virginia,Midwestern,Active,false
+644,Pi Mu Lambda,alumni,,,Midwestern,Dechartered,true
+741,Pi Nu,collegiate,Appalachian State University,North Carolina,Southern,Active,false
+645,Pi Nu Lambda,alumni,,Arkansas,Southwestern,Active,false
+743,Pi Omicron,collegiate,Texas A and M University,Texas,Southwestern,Active,false
+647,Pi Omicron Lambda,alumni,,Kansas,Midwestern,Active,false
+749,Pi Phi,collegiate,Wright State University,Ohio,Midwestern,Active,false
+653,Pi Phi Lambda,alumni,,,Southwestern,Dechartered,true
+744,Pi Pi,collegiate,Union College,New York,Eastern,Inactive,false
+648,Pi Pi Lambda,alumni,,Louisiana,Southwestern,Active,false
+751,Pi Psi,collegiate,"University of Arkansas, Monticello",Arkansas,Southwestern,Inactive,false
+655,Pi Psi Lambda,alumni,,Florida,Southern,Active,false
+745,Pi Rho,collegiate,Temple University,Pennsylvania,Eastern,Active,false
+649,Pi Rho Lambda,alumni,,Southern California,Western,Active,false
+746,Pi Sigma,collegiate,,Illinois,Midwestern,Inactive,false
+650,Pi Sigma Lambda,alumni,,Mississippi,Southern,Active,false
+747,Pi Tau,collegiate,,Georgia,Southern,Dechartered,true
+651,Pi Tau Lambda,alumni,,New England,Eastern,Inactive,false
+737,Pi Theta,collegiate,Coppin State University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+641,Pi Theta Lambda,alumni,,Texas,Southwestern,Active,false
+748,Pi Upsilon,collegiate,University of Michigan - Dearborn,Michigan,Midwestern,Active,false
+652,Pi Upsilon Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+742,Pi Xi,collegiate,Stockton University,New Jersey,Eastern,Inactive,false
+646,Pi Xi Lambda,alumni,,Rocky Mountain (Colorado/Utah),Western,Active,false
+735,Pi Zeta,collegiate,University of NC at Greensboro,North Carolina,Southern,Active,false
+639,Pi Zeta Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Active,false
+22,Psi,collegiate,University of Penn,Pennsylvania,Eastern,Active,false
+122,Psi Lambda,alumni,,Tennessee,Southern,Active,false
+"9,999",Renounced Chapter,unknown,,Renounced,Region 7,Dechartered,true
+16,Rho,alumni,,Pennsylvania,Eastern,Probation,false
+752,Rho Alpha,collegiate,Suny College at Brockport,New York,Eastern,Inactive,false
+656,Rho Alpha Lambda,alumni,,North Carolina,Southern,Active,false
+753,Rho Beta,collegiate,Portland State University,Great Northwest,Western,Active,false
+657,Rho Beta Lambda,alumni,,North Carolina,Southern,Inactive,false
+772,Rho Chi,collegiate,"University of Alabama, Huntsville",Alabama,Southern,Active,false
+675,Rho Chi Lambda,alumni,,International,Eastern,Active,false
+755,Rho Delta,collegiate,Central Michigan University,Michigan,Midwestern,Inactive,false
+659,Rho Delta Lambda,alumni,,South Carolina,Southern,Active,false
+756,Rho Epsilon,collegiate,"Loyola University, New Orleans",Louisiana,Southwestern,Active,false
+660,Rho Epsilon Lambda,alumni,,Mississippi,Southern,Active,false
+758,Rho Eta,collegiate,Eastern Kentucky University,Kentucky,Midwestern,Inactive,false
+662,Rho Eta Lambda,alumni,,Alabama,Southern,Active,false
+754,Rho Gamma,collegiate,Northern Kentucky University,Kentucky,Midwestern,Active,false
+658,Rho Gamma Lambda,alumni,,Mississippi,Southern,Inactive,false
+760,Rho Iota,collegiate,Tulane University,Louisiana,Southwestern,Active,false
+664,Rho Iota Lambda,alumni,,Virginia,Eastern,Active,false
+761,Rho Kappa,collegiate,Suny College at Old Westbury,New York,Eastern,Inactive,false
+665,Rho Kappa Lambda,alumni,,Georgia,Southern,Active,false
+116,Rho Lambda,alumni,,New York,Eastern,Active,false
+762,Rho Mu,collegiate,West Texas A and M University,Texas,Southwestern,Active,false
+666,Rho Mu Lambda,alumni,,Georgia,Southern,Active,false
+763,Rho Nu,collegiate,Mass Inst of Tech,New England,Eastern,Active,false
+667,Rho Nu Lambda,alumni,,Texas,Southwestern,Active,false
+765,Rho Omicron,collegiate,West Point Academy,New York,Eastern,Active,false
+669,Rho Omicron Lambda,alumni,,Florida,Southern,Active,false
+771,Rho Phi,collegiate,Mississippi State University,Mississippi,Southern,Dechartered,true
+674,Rho Phi Lambda,alumni,,International,Eastern,Active,false
+766,Rho Pi,collegiate,Edinboro University,Pennsylvania,Eastern,Active,false
+670,Rho Pi Lambda,alumni,,Georgia,Southern,Active,false
+773,Rho Psi,collegiate,,Texas,Southwestern,Inactive,false
+676,Rho Psi Lambda,alumni,,New York,Eastern,Active,false
+767,Rho Rho,collegiate,Suny at Stony Brook,New York,Eastern,Active,false
+768,Rho Sigma,collegiate,Suny at Albany,New York,Eastern,Inactive,false
+671,Rho Sigma Lambda,alumni,,Georgia,Southern,Active,false
+769,Rho Tau,collegiate,Evansville University,Indiana,Midwestern,Active,false
+672,Rho Tau Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+759,Rho Theta,collegiate,Northwest Missouri State University,Missouri,Midwestern,Active,false
+663,Rho Theta Lambda,alumni,,North Carolina,Southern,Active,false
+770,Rho Upsilon,collegiate,Denison University,Ohio,Midwestern,Suspended,false
+673,Rho Upsilon Lambda,alumni,,Alabama,Southern,Active,false
+764,Rho Xi,collegiate,St. Leo University,Florida,Southern,Active,false
+668,Rho Xi Lambda,alumni,,Mississippi,Southern,Active,false
+757,Rho Zeta,collegiate,,South Carolina,Southern,Dechartered,true
+661,Rho Zeta Lambda,alumni,,Illinois,Midwestern,Active,false
+17,Sigma,collegiate,Boston University,New England,Eastern,Active,false
+774,Sigma Alpha,collegiate,,Northern California,Western,Dechartered,true
+677,Sigma Alpha Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+775,Sigma Beta,collegiate,East Tennessee State University,Tennessee,Southern,Active,false
+678,Sigma Beta Lambda,alumni,,Florida,Southern,Inactive,false
+794,Sigma Chi,collegiate,,South Carolina,Southern,Dechartered,true
+871,Sigma Chi Lambda,alumni,,New Jersey,Eastern,Active,false
+777,Sigma Delta,collegiate,Elon University,North Carolina,Southern,Active,false
+830,Sigma Delta Lambda,alumni,,Michigan,Midwestern,Active,false
+778,Sigma Epsilon,collegiate,Tarleton State University,Texas,Southwestern,Active,false
+832,Sigma Epsilon Lambda,alumni,,Canada,Midwestern,Active,false
+780,Sigma Eta,collegiate,Suny at New Paltz,New York,Eastern,Inactive,false
+836,Sigma Eta Lambda,alumni,,Georgia,Southern,Active,false
+776,Sigma Gamma,collegiate,"Xavier University, Cincinnati",Ohio,Midwestern,Cease and Desist,false
+679,Sigma Gamma Lambda,alumni,,Texas,Southwestern,Active,false
+782,Sigma Iota,collegiate,University of Toronto,Canada,Midwestern,Dechartered,true
+843,Sigma Iota Lambda,alumni,,Mississippi,Southern,Active,false
+783,Sigma Kappa,collegiate,Missouri Western State University,Missouri,Midwestern,Active,false
+852,Sigma Kappa Lambda,alumni,,Indiana,Midwestern,Active,false
+117,Sigma Lambda,alumni,,Louisiana,Southwestern,Active,false
+784,Sigma Mu,collegiate,Adelphi University,New York,Eastern,Active,false
+858,Sigma Mu Lambda,alumni,,Pennsylvania,Eastern,Active,false
+785,Sigma Nu,collegiate,William Paterson University,New Jersey,Eastern,Inactive,false
+859,Sigma Nu Lambda,alumni,,Missouri,Midwestern,Active,false
+787,Sigma Omicron,collegiate,Suny at Oswego,New York,Eastern,Inactive,false
+861,Sigma Omicron Lambda,alumni,,Georgia,Southern,Active,false
+793,Sigma Phi,collegiate,Indiana University - Purdue University at Indianapolis,Indiana,Midwestern,Active,false
+870,Sigma Phi Lambda,alumni,,Arkansas,Southwestern,Active,false
+788,Sigma Pi,collegiate,University of Lynchburg,Virginia,Eastern,Inactive,false
+862,Sigma Pi Lambda,alumni,,Florida,Southern,Active,false
+795,Sigma Psi,collegiate,University of Nevada Las Vegas,"Arizona, Nevada, New Mexico",Western,Active,false
+872,Sigma Psi Lambda,alumni,,International,Eastern,Active,false
+789,Sigma Rho,collegiate,,South Carolina,Southern,Dechartered,true
+863,Sigma Rho Lambda,alumni,,Tennessee,Southern,Active,false
+790,Sigma Sigma,collegiate,Johns Hopkins University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+867,Sigma Sigma Lambda,alumni,,Mississippi,Southern,Active,false
+791,Sigma Tau,collegiate,University of South Carolina Columbia,South Carolina,Southern,Active,false
+868,Sigma Tau Lambda,alumni,,South Carolina,Southern,Active,false
+781,Sigma Theta,collegiate,Missouri State University,Missouri,Midwestern,Active,false
+839,Sigma Theta Lambda,alumni,,Georgia,Southern,Active,false
+792,Sigma Upsilon,collegiate,University of North Florida,Florida,Southern,Active,false
+869,Sigma Upsilon Lambda,alumni,,Wisconsin,Midwestern,Active,false
+786,Sigma Xi,collegiate,,New Jersey,Eastern,Dechartered,true
+860,Sigma Xi Lambda,alumni,,Kentucky,Midwestern,Active,false
+779,Sigma Zeta,collegiate,Trinity College,New England,Eastern,Inactive,false
+834,Sigma Zeta Lambda,alumni,,New Jersey,Eastern,Active,false
+18,Tau,collegiate,University of Illinois Urbana-Champaign,Illinois,Midwestern,Active,false
+796,Tau Alpha,collegiate,Baylor University,Texas,Southwestern,Active,false
+873,Tau Alpha Lambda,alumni,,International,Eastern,Inactive,false
+797,Tau Beta,collegiate,Louisiana State University at Shreveport,Louisiana,Southwestern,Inactive,false
+874,Tau Beta Lambda,alumni,,Florida,Southern,Inactive,false
+816,Tau Chi,collegiate,University of West Georgia,Georgia,Southern,Inactive,false
+799,Tau Delta,collegiate,Florida International University,Florida,Southern,Inactive,false
+876,Tau Delta Lambda,alumni,,Florida,Southern,Active,false
+800,Tau Epsilon,collegiate,Clayton State University,Georgia,Southern,Active,false
+877,Tau Epsilon Lambda,alumni,,Georgia,Southern,Active,false
+802,Tau Eta,collegiate,The College of Charleston,South Carolina,Southern,Active,false
+884,Tau Eta Lambda,alumni,,Mississippi,Southern,Active,false
+798,Tau Gamma,collegiate,,Florida,Southern,Dechartered,true
+875,Tau Gamma Lambda,alumni,,Georgia,Southern,Active,false
+804,Tau Iota,collegiate,Samford University,Alabama,Southern,Active,false
+886,Tau Iota Lambda,alumni,,Tennessee,Southern,Active,false
+805,Tau Kappa,collegiate,Oakland University,Michigan,Midwestern,Active,false
+887,Tau Kappa Lambda,alumni,,Florida,Southern,Active,false
+118,Tau Lambda,alumni,,Tennessee,Southern,Active,false
+806,Tau Mu,collegiate,,Texas,Southwestern,Dechartered,true
+889,Tau Mu Lambda,alumni,,Southern California,Western,Active,false
+807,Tau Nu,collegiate,University of North Carolina at Pembroke,North Carolina,Southern,Active,false
+890,Tau Nu Lambda,alumni,,New York,Eastern,Active,false
+809,Tau Omicron,collegiate,Davidson College,North Carolina,Southern,Active,false
+892,Tau Omicron Lambda,alumni,,Texas,Southwestern,Active,false
+815,Tau Phi,collegiate,Austin Peay State University,Tennessee,Southern,Active,false
+899,Tau Phi Lambda,alumni,,Arkansas,Southwestern,Provisional/Alumni,false
+810,Tau Pi,collegiate,The University of Tampa,Florida,Southern,Inactive,false
+893,Tau Pi Lambda,alumni,,Texas,Southwestern,Active,false
+817,Tau Psi,collegiate,The University of Tennessee at Martin,Tennessee,Southern,Active,false
+811,Tau Rho,collegiate,University of North Georgia,Georgia,Southern,Inactive,false
+894,Tau Rho Lambda,alumni,,Illinois,Midwestern,Active,false
+812,Tau Sigma,collegiate,University of New Mexico,"Arizona, Nevada, New Mexico",Western,Active,false
+895,Tau Sigma Lambda,alumni,,Illinois,Midwestern,Provisional/Alumni,false
+813,Tau Tau,collegiate,Houston Christian University,Texas,Southwestern,Active,false
+897,Tau Tau Lambda,alumni,,Georgia,Southern,Provisional/Alumni,false
+803,Tau Theta,collegiate,Stetson University,Florida,Southern,Dechartered,true
+885,Tau Theta Lambda,alumni,,Missouri,Midwestern,Active,false
+814,Tau Upsilon,collegiate,Purdue University Northwest,Indiana,Midwestern,Inactive,false
+898,Tau Upsilon Lambda,alumni,,Georgia,Southern,Provisional/Alumni,false
+808,Tau Xi,collegiate,The University of Texas at Dallas,Texas,Southwestern,Inactive,false
+891,Tau Xi Lambda,alumni,,,Western,Provisional/Alumni,false
+801,Tau Zeta,collegiate,Kennesaw State University,Georgia,Southern,Inactive,false
+878,Tau Zeta Lambda,alumni,,Florida,Southern,Active,false
+8,Theta,collegiate,University of Ill at Chicago,Illinois,Midwestern,Active,false
+376,Theta Alpha,collegiate,Jarvis Christian College,Texas,Southwestern,Active,false
+278,Theta Alpha Lambda,alumni,,Alabama,Southern,Active,false
+377,Theta Beta,collegiate,Columbus State University,Georgia,Southern,Active,false
+279,Theta Beta Lambda,alumni,,Northern California,Western,Dechartered,true
+396,Theta Chi,collegiate,Northwestern State University,Louisiana,Southwestern,Active,false
+298,Theta Chi Lambda,alumni,,New York,Eastern,Dechartered,true
+379,Theta Delta,collegiate,University  of South Alabama,Alabama,Southern,Active,false
+281,Theta Delta Lambda,alumni,,Texas,Southwestern,Active,false
+380,Theta Epsilon,collegiate,"St. John's University, Jamaica NY",New York,Eastern,Inactive,false
+282,Theta Epsilon Lambda,alumni,,Florida,Southern,Inactive,false
+382,Theta Eta,collegiate,,Northern California,Western,Dechartered,true
+284,Theta Eta Lambda,alumni,,Florida,Southern,Active,false
+378,Theta Gamma,collegiate,University of South Florida,Florida,Southern,Active,false
+280,Theta Gamma Lambda,alumni,,Alabama,Southern,Dechartered,true
+384,Theta Iota,collegiate,Virginia Tech,Virginia,Eastern,Active,false
+286,Theta Iota Lambda,alumni,,New England,Eastern,Active,false
+385,Theta Kappa,collegiate,Henderson State University,Arkansas,Southwestern,Active,false
+287,Theta Kappa Lambda,alumni,,,Southwestern,Dechartered,true
+108,Theta Lambda,alumni,,Ohio,Midwestern,Active,false
+386,Theta Mu,collegiate,Sam Houston State University,Texas,Southwestern,Cease and Desist,false
+288,Theta Mu Lambda,alumni,,Illinois,Midwestern,Active,false
+387,Theta Nu,collegiate,University of South Carolina Columbia,South Carolina,Southern,Probation,false
+289,Theta Nu Lambda,alumni,,Georgia,Southern,Active,false
+389,Theta Omicron,collegiate,Millikin University,Illinois,Midwestern,Active,false
+291,Theta Omicron Lambda,alumni,,North Carolina,Southern,Active,false
+395,Theta Phi,collegiate,LSU New Orleans,Louisiana,Southwestern,Active,false
+297,Theta Phi Lambda,alumni,,South Carolina,Southern,Active,false
+390,Theta Pi,collegiate,,Tennessee,Southern,Dechartered,true
+292,Theta Pi Lambda,alumni,,"Arizona, Nevada, New Mexico",Western,Inactive,false
+397,Theta Psi,collegiate,University of Central Arkansas,Arkansas,Southwestern,Active,false
+299,Theta Psi Lambda,alumni,,New Jersey,Eastern,Active,false
+391,Theta Rho,collegiate,Virginia Commonwealth University,Virginia,Eastern,Active,false
+293,Theta Rho Lambda,alumni,,Virginia,Eastern,Active,false
+392,Theta Sigma,collegiate,University of Florida,Florida,Southern,Suspended,false
+294,Theta Sigma Lambda,alumni,,Mississippi,Southern,Active,false
+393,Theta Tau,collegiate,Kettering University,Michigan,Midwestern,Inactive,false
+295,Theta Tau Lambda,alumni,,Arkansas,Southwestern,Active,false
+383,Theta Theta,collegiate,McNeese State University,Louisiana,Southwestern,Active,false
+285,Theta Theta Lambda,alumni,,International,Eastern,Active,false
+394,Theta Upsilon,collegiate,Arkansas State University,Arkansas,Southwestern,Active,false
+296,Theta Upsilon Lambda,alumni,,Indiana,Midwestern,Active,false
+388,Theta Xi,collegiate,Ball State University,Indiana,Midwestern,Active,false
+290,Theta Xi Lambda,alumni,,Indiana,Midwestern,Active,false
+381,Theta Zeta,collegiate,Dartmouth College,New England,Eastern,Active,false
+283,Theta Zeta Lambda,alumni,,Michigan,Midwestern,Active,false
+19,Upsilon,collegiate,University of Kansas,Kansas,Midwestern,Active,false
+818,Upsilon Alpha,collegiate,University of South Carolina Upstate,South Carolina,Southern,Active,false
+819,Upsilon Beta,collegiate,Christopher Newport University,Virginia,Eastern,Active,false
+845,Upsilon Chi,collegiate,Pepperdine University,Southern California,Western,Inactive,false
+822,Upsilon Delta,collegiate,Rust College,Mississippi,Southern,Active,false
+823,Upsilon Epsilon,collegiate,Salisbury University,"Washington DC, Maryland, Delaware",Eastern,Active,false
+825,Upsilon Eta,collegiate,Auburn University at Montgomery,Alabama,Southern,Active,false
+820,Upsilon Gamma,collegiate,University of Richmond,Virginia,Eastern,Inactive,false
+827,Upsilon Iota,collegiate,Chowan University,North Carolina,Southern,Inactive,false
+828,Upsilon Kappa,collegiate,Suny at Plattsburgh,New York,Eastern,Inactive,false
+119,Upsilon Lambda,alumni,,Florida,Southern,Active,false
+829,Upsilon Mu,collegiate,Southern Methodist University,Texas,Southwestern,Active,false
+835,Upsilon Omicron,collegiate,Oglethorpe University,Georgia,Southern,Active,false
+844,Upsilon Phi,collegiate,Bethel University,Tennessee,Southern,Active,false
+837,Upsilon Pi,collegiate,Hobart and William Smith Colleges,New York,Eastern,Inactive,false
+846,Upsilon Psi,collegiate,,Georgia,Southern,Active,false
+838,Upsilon Rho,collegiate,University of San Francisco,Northern California,Western,Active,false
+840,Upsilon Sigma,collegiate,Florida Gulf Coast University,Florida,Southern,Active,false
+841,Upsilon Tau,collegiate,Belmont University,Tennessee,Southern,Dormant,false
+826,Upsilon Theta,collegiate,Florida Atlantic University,Florida,Southern,Active,false
+842,Upsilon Upsilon,collegiate,New York University,New York,Eastern,Active,false
+833,Upsilon Xi,collegiate,University of Illinois SpringField,Illinois,Midwestern,Active,false
+824,Upsilon Zeta,collegiate,"University of Maryland, Baltimore County","Washington DC, Maryland, Delaware",Eastern,Dechartered,true
+13,Xi,collegiate,Wilberforce University,Ohio,Midwestern,Active,false
+486,Xi Alpha,collegiate,Morehead State University,Kentucky,Midwestern,Inactive,false
+590,Xi Alpha Lambda,alumni,,Virginia,Eastern,Active,false
+487,Xi Beta,collegiate,Troy University,Alabama,Southern,Active,false
+591,Xi Beta Lambda,alumni,,Texas,Southwestern,Inactive,false
+706,Xi Chi,collegiate,,Ohio,Midwestern,Inactive,false
+610,Xi Chi Lambda,alumni,,Louisiana,Southwestern,Dechartered,true
+489,Xi Delta,collegiate,James Madison University,Virginia,Eastern,Inactive,false
+593,Xi Delta Lambda,alumni,,Virginia,Eastern,Active,false
+490,Xi Epsilon,collegiate,Morris College,South Carolina,Southern,Active,false
+594,Xi Epsilon Lambda,alumni,,Missouri,Midwestern,Inactive,false
+492,Xi Eta,collegiate,Wake Forest University,North Carolina,Southern,Active,false
+596,Xi Eta Lambda,alumni,,Texas,Southwestern,Active,false
+488,Xi Gamma,collegiate,Southeast Missouri State University,Missouri,Midwestern,Active,false
+592,Xi Gamma Lambda,alumni,,South Carolina,Southern,Active,false
+494,Xi Iota,collegiate,University of Central Florida,Florida,Southern,Active,false
+598,Xi Iota Lambda,alumni,,Southern California,Western,Active,false
+495,Xi Kappa,collegiate,,Florida,Southern,Dechartered,true
+599,Xi Kappa Lambda,alumni,,Texas,Southwestern,Active,false
+113,Xi Lambda,alumni,,Illinois,Midwestern,Active,false
+496,Xi Mu,collegiate,,Pennsylvania,Eastern,Dechartered,true
+600,Xi Mu Lambda,alumni,,Kansas,Midwestern,Dechartered,true
+497,Xi Nu,collegiate,Emporia State University,Kansas,Midwestern,Active,false
+601,Xi Nu Lambda,alumni,,Louisiana,Southwestern,Active,false
+499,Xi Omicron,collegiate,University of Delaware,"Washington DC, Maryland, Delaware",Eastern,Active,false
+603,Xi Omicron Lambda,alumni,,Florida,Southern,Active,false
+705,Xi Phi,collegiate,Winthrop University,South Carolina,Southern,Active,false
+609,Xi Phi Lambda,alumni,,South Carolina,Southern,Active,false
+700,Xi Pi,collegiate,California State University East Bay,Northern California,Western,Active,false
+604,Xi Pi Lambda,alumni,,Kentucky,Midwestern,Dechartered,true
+707,Xi Psi,collegiate,Hofstra University,New York,Eastern,Active,false
+611,Xi Psi Lambda,alumni,,Florida,Southern,Active,false
+701,Xi Rho,collegiate,San Francisco State University,Northern California,Western,Active,false
+605,Xi Rho Lambda,alumni,,Florida,Southern,Dechartered,true
+702,Xi Sigma,collegiate,Indiana University of Penn,Pennsylvania,Eastern,Active,false
+606,Xi Sigma Lambda,alumni,,Florida,Southern,Dechartered,true
+703,Xi Tau,collegiate,Georgia Southern University,Georgia,Southern,Active,false
+607,Xi Tau Lambda,alumni,,Texas,Southwestern,Active,false
+493,Xi Theta,collegiate,,West Virginia,Midwestern,Dechartered,true
+597,Xi Theta Lambda,alumni,,South Carolina,Southern,Active,false
+704,Xi Upsilon,collegiate,,Northern California,Western,Dechartered,true
+608,Xi Upsilon Lambda,alumni,,South Carolina,Southern,Dechartered,true
+498,Xi Xi,collegiate,Jacksonville State University,Alabama,Southern,Active,false
+602,Xi Xi Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+491,Xi Zeta,collegiate,Longwood University,Virginia,Eastern,Active,false
+595,Xi Zeta Lambda,alumni,,Mississippi,Southern,Active,false
+6,Zeta,collegiate,Yale University,New England,Eastern,Active,false
+332,Zeta Alpha,collegiate,University of Missouri-Columbia,Missouri,Midwestern,Active,false
+234,Zeta Alpha Lambda,alumni,,Florida,Southern,Active,false
+333,Zeta Beta,collegiate,Ferris State University,Michigan,Midwestern,Active,false
+235,Zeta Beta Lambda,alumni,,Northern California,Western,Active,false
+352,Zeta Chi,collegiate,University of Texas - Arlington,Texas,Southwestern,Active,false
+254,Zeta Chi Lambda,alumni,,Louisiana,Southwestern,Dechartered,true
+335,Zeta Delta,collegiate,Michigan State University,Michigan,Midwestern,Suspended,false
+237,Zeta Delta Lambda,alumni,,Ohio,Midwestern,Active,false
+336,Zeta Epsilon,collegiate,,North Carolina,Southern,Dechartered,true
+238,Zeta Epsilon Lambda,alumni,,New Jersey,Eastern,Active,false
+338,Zeta Eta,collegiate,New York Institute of Technology,New York,Eastern,Inactive,false
+240,Zeta Eta Lambda,alumni,,North Carolina,Southern,Active,false
+334,Zeta Gamma,collegiate,University of Central Missouri,Missouri,Midwestern,Active,false
+236,Zeta Gamma Lambda,alumni,,Oklahoma,Southwestern,Active,false
+340,Zeta Iota,collegiate,University of Wisconsin-Whitewater,Wisconsin,Midwestern,Suspended,false
+242,Zeta Iota Lambda,alumni,,New Jersey,Eastern,Active,false
+341,Zeta Kappa,collegiate,,Texas,Southwestern,Dechartered,true
+243,Zeta Kappa Lambda,alumni,,Iowa,Midwestern,Active,false
+106,Zeta Lambda,alumni,,Virginia,Eastern,Active,false
+342,Zeta Mu,collegiate,Georgia State University,Georgia,Southern,Active,false
+244,Zeta Mu Lambda,alumni,,Mississippi,Southern,Active,false
+343,Zeta Nu,collegiate,Eastern Illinois University,Illinois,Midwestern,Active,false
+245,Zeta Nu Lambda,alumni,,New Jersey,Eastern,Active,false
+345,Zeta Omicron,collegiate,Murray State University,Kentucky,Midwestern,Active,false
+247,Zeta Omicron Lambda,alumni,,Pennsylvania,Eastern,Active,false
+351,Zeta Phi,collegiate,Mississippi Valley State University,Mississippi,Southern,Active,false
+253,Zeta Phi Lambda,alumni,,New England,Eastern,Active,false
+346,Zeta Pi,collegiate,University of Georgia,Georgia,Southern,Active,false
+248,Zeta Pi Lambda,alumni,,Great Northwest,Western,Active,false
+353,Zeta Psi,collegiate,West Chester University,Pennsylvania,Eastern,Active,false
+255,Zeta Psi Lambda,alumni,,Louisiana,Southwestern,Active,false
+347,Zeta Rho,collegiate,Indiana State University,Indiana,Midwestern,Active,false
+249,Zeta Rho Lambda,alumni,,"Washington DC, Maryland, Delaware",Eastern,Active,false
+348,Zeta Sigma,collegiate,University of Central Oklahoma,Oklahoma,Southwestern,Active,false
+250,Zeta Sigma Lambda,alumni,,Southern California,Western,Active,false
+349,Zeta Tau,collegiate,Texas A&M University-Commerce,Texas,Southwestern,Active,false
+251,Zeta Tau Lambda,alumni,,Texas,Southwestern,Active,false
+339,Zeta Theta,collegiate,University of Arizona,"Arizona, Nevada, New Mexico",Western,Active,false
+241,Zeta Theta Lambda,alumni,,Pennsylvania,Eastern,Active,false
+350,Zeta Upsilon,collegiate,,Oklahoma,Southwestern,Dechartered,true
+252,Zeta Upsilon Lambda,alumni,,Virginia,Eastern,Active,false
+344,Zeta Xi,collegiate,University of Louisiana - Lafayette,Louisiana,Southwestern,Active,false
+246,Zeta Xi Lambda,alumni,,Illinois,Midwestern,Active,false
+337,Zeta Zeta,collegiate,University of Oklahoma,Oklahoma,Southwestern,Active,false
+239,Zeta Zeta Lambda,alumni,,New York,Eastern,Active,false

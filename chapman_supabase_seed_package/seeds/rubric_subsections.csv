@@ -1,0 +1,48 @@
+rubric_version_code,section_code,subsection_code,subsection_name,display_order,active
+alumni_v1,community_engagement,1_community_leadership,1.) Community Leadership,1,true
+alumni_v1,community_engagement,2_community_service,2.) Community Service,2,true
+alumni_v1,community_engagement,5_social_events,5.) Social Events,3,true
+alumni_v1,community_engagement,6_involvement_w_external_organizations,6.) Involvement w/ External Organizations,4,true
+alumni_v1,national_programs_special_initiatives,1_go_to_high_school_go_to_college,"1.) Go To High School, Go To College",1,true
+alumni_v1,national_programs_special_initiatives,2_voteless_people_is_a_hopeless_people,2.) Voteless People is a Hopeless People,2,true
+alumni_v1,national_programs_special_initiatives,3_project_alpha,3.) Project Alpha,3,true
+alumni_v1,national_programs_special_initiatives,4_brother_s_keeper,4.) Brother’s Keeper,4,true
+alumni_v1,national_programs_special_initiatives,5_college_life_to_corporate_life,5.) College Life to Corporate Life,5,true
+alumni_v1,national_programs_special_initiatives,6_leadership_development_institute,6.) Leadership Development Institute,6,true
+alumni_v1,national_programs_special_initiatives,7_boy_scouts_of_america,7.) Boy Scouts of America,7,true
+alumni_v1,national_programs_special_initiatives,8_big_brothers_big_sisters_of_america,8.) Big Brothers / Big Sisters of America,8,true
+alumni_v1,national_programs_special_initiatives,9_cannon_dozier_project,9.) Cannon-Dozier Project,9,true
+alumni_v1,operational_excellence,1_financial_management,1.) Financial Management,1,true
+alumni_v1,operational_excellence,2_organizational_deadlines,2.) Organizational Deadlines,2,true
+alumni_v1,operational_excellence,3_officer_transitioning,3.) Officer Transitioning,3,true
+alumni_v1,operational_excellence,4_organization_marketing_branding,4.) Organization Marketing/Branding,4,true
+alumni_v1,operational_excellence,5_conference_conventions,5.) Conference & Conventions,5,true
+alumni_v1,operational_excellence,6_advisor_involvement_with_overseen_college_chapter_s,6.) Advisor Involvement with Overseen College Chapter(s),6,true
+alumni_v1,operational_excellence,7_chapter_involvement_with_overseen_college_chapter_s,7.) Chapter Involvement with Overseen College Chapter(s),7,true
+alumni_v1,operational_excellence,8_professional_career_enrichment,8.) Professional & Career Enrichment,8,true
+alumni_v1,operational_excellence,10_imdp_intake_compliance,10.) IMDP/Intake Compliance,9,true
+collegiate_v1,academic_excellence,1_grade_point_average_academic_initiatives,1.) Grade Point Average & Academic Initiatives,1,true
+collegiate_v1,campus_community_engagement,1_campus_community_leadership,1.) Campus & Community Leadership,1,true
+collegiate_v1,campus_community_engagement,2_community_service,2.) Community Service,2,true
+collegiate_v1,campus_community_engagement,4_greek_and_university_college_activities,4.) Greek and University/College Activities,3,true
+collegiate_v1,campus_community_engagement,5_social_events,5.) Social Events,4,true
+collegiate_v1,campus_community_engagement,6_on_campus_co_curricular_activities_involvement,6.) On-Campus Co-Curricular Activities Involvement,5,true
+collegiate_v1,national_programs_special_initiatives,1_go_to_high_school_go_to_college,"1.) Go To High School, Go To College",1,true
+collegiate_v1,national_programs_special_initiatives,2_voteless_people_is_a_hopeless_people,2.) Voteless People is a Hopeless People,2,true
+collegiate_v1,national_programs_special_initiatives,3_project_alpha,3.) Project Alpha,3,true
+collegiate_v1,national_programs_special_initiatives,4_brother_s_keeper,4.) Brother’s Keeper,4,true
+collegiate_v1,national_programs_special_initiatives,5_college_life_to_corporate_life,5.) College Life to Corporate Life,5,true
+collegiate_v1,national_programs_special_initiatives,6_leadership_development_institute,6.) Leadership Development Institute,6,true
+collegiate_v1,national_programs_special_initiatives,7_boy_scouts_of_america,7.) Boy Scouts of America,7,true
+collegiate_v1,national_programs_special_initiatives,8_big_brothers_big_sisters_of_america,8.) Big Brothers / Big Sisters of America,8,true
+collegiate_v1,national_programs_special_initiatives,9_cannon_dozier_project,9.) Cannon-Dozier Project,9,true
+collegiate_v1,operational_excellence,1_financial_management,1.) Financial Management,1,true
+collegiate_v1,operational_excellence,2_organizational_deadlines,2.) Organizational Deadlines,2,true
+collegiate_v1,operational_excellence,3_officer_transitioning,3.) Officer Transitioning,3,true
+collegiate_v1,operational_excellence,4_organization_marketing_branding,4.) Organization Marketing/Branding,4,true
+collegiate_v1,operational_excellence,5_conference_conventions,5.) Conference & Conventions,5,true
+collegiate_v1,operational_excellence,6_advisor_involvement_with_overseen_college_chapter_s,6.) Advisor Involvement with Overseen College Chapter(s),6,true
+collegiate_v1,operational_excellence,7_chapter_involvement_with_overseeing_alumni_chapter_s,7.) Chapter Involvement with Overseeing Alumni Chapter(s),7,true
+collegiate_v1,operational_excellence,8_professional_career_enrichment,8.) Professional & Career Enrichment,8,true
+collegiate_v1,operational_excellence,9_college_retention,9.) College Retention,9,true
+collegiate_v1,operational_excellence,10_imdp_intake_compliance,10.) IMDP/Intake Compliance,10,true

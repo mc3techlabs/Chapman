@@ -1,0 +1,14 @@
+-- Seed load order
+-- 1. chapter_types.csv
+-- 2. chapter_statuses.csv
+-- 3. app_roles.csv
+-- 4. report_terms.csv
+-- 5. system_contacts.csv
+-- 6. chapters.csv
+-- 7. rubric_versions.csv
+-- 8. rubric_sections.csv
+-- 9. rubric_subsections.csv
+-- 10. rubric_items.csv
+-- 11. reporting_windows_template.csv (optional, after dates added)
+-- 12. reviewer_directory_template.csv (after real reviewer names/emails added)
+-- 13. reviewer_assignments_template.csv (after reviewer directory is loaded and linked)

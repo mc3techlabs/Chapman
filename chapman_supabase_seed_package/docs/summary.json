@@ -1,0 +1,17 @@
+{
+  "chapters": 879,
+  "college_items": 156,
+  "alumni_items": 144,
+  "rubric_items_total": 300,
+  "statuses": [
+    "Active",
+    "Cease and Desist",
+    "Dechartered",
+    "Dormant",
+    "Inactive",
+    "Probation",
+    "Provisional/Alumni",
+    "Provisional/College",
+    "Suspended"
+  ]
+}
