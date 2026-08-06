@@ -63,29 +63,52 @@ against.
    - `reviewer_directory_template.csv` — add real reviewer names/emails.
    - `reviewer_assignments_template.csv` — load after reviewer auth users
      and their `profiles` rows exist.
-5. Create Supabase Auth users for each chapter (one shared login) and for
+5. Before inviting anyone, set up Auth URLs and the invite email template
+   (one-time project setup):
+   - **Authentication -> URL Configuration -> Site URL**: your deployed app
+     origin (e.g. `https://chapman-wheat.vercel.app`), not `localhost`.
+   - **Authentication -> URL Configuration -> Redirect URLs**: add
+     `<that origin>/**`.
+   - **Authentication -> Email Templates -> Invite user**: replace the
+     default template's link so it points at our own click-to-confirm page
+     instead of Supabase's `/auth/v1/verify` endpoint directly. This
+     matters — the default template auto-verifies the one-time token on a
+     plain page load, so email security scanners / antivirus / link-preview
+     fetchers that prefetch links in the email silently burn the token
+     before the real user clicks it (shows as `otp_expired` /
+     `access_denied` in the redirect). Set the template body to:
+     ```html
+     <h2>You have been invited</h2>
+     <p>You have been invited to create a user on {{ .SiteURL }}. Follow this link to accept the invite:</p>
+     <p><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite">Accept the invite</a></p>
+     ```
+     `app/auth/confirm/page.tsx` requires an actual button click before
+     calling `verifyOtp`, so passive prefetches can't consume it.
+6. Create Supabase Auth users for each chapter (one shared login) and for
    every named reviewer (DD, RVP, Executive Director, admin). The
    `handle_new_profile` trigger auto-creates a matching `public.profiles`
    row with `role_code` from `raw_user_meta_data.role_code` (defaults to
    `chapter` if omitted).
    For named reviewers/admins with a real inbox, use the invite script —
-   it sends a Supabase invite email and the person sets their own password,
-   so this never handles a password:
+   it sends a Supabase invite email and the person sets their own password
+   on `/auth/set-password`, so this never handles a password:
    ```bash
    SUPABASE_URL=https://<project>.supabase.co \
    SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
    npm run invite:user -- --email=someone@example.com --role=admin \
+     --app-url=https://chapman-wheat.vercel.app \
      [--name="Full Name"] [--district="Texas"] [--region="Southwestern"]
    ```
    `--role` is one of `chapter, district_director, rvp, executive_director,
    admin`; `--district`/`--region` only matter for `district_director`/`rvp`
-   (they scope that reviewer's queues). For chapter shared logins (not tied
-   to one person's inbox), create the user via the Supabase dashboard
-   (Authentication -> Users -> Add user) instead, setting
-   `role_code: "chapter"` in raw user metadata.
-6. Link each chapter's shared auth user to its chapter row in
+   (they scope that reviewer's queues). Add `--force` to resend (deletes
+   and recreates the auth user for that email first). For chapter shared
+   logins (not tied to one person's inbox), create the user via the
+   Supabase dashboard (Authentication -> Users -> Add user) instead,
+   setting `role_code: "chapter"` in raw user metadata.
+7. Link each chapter's shared auth user to its chapter row in
    `chapter_user_links`.
-7. Set up reviewer assignments via `/admin/reviewers` in the app, or by
+8. Set up reviewer assignments via `/admin/reviewers` in the app, or by
    loading `reviewer_assignments_template.csv` once it's filled in.
 
 ## Vercel deployment checklist
