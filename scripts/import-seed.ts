@@ -41,6 +41,25 @@ async function upsert(table: string, rows: object[], onConflict: string) {
   console.log(`  ${table}: ${rows.length} rows`);
 }
 
+/**
+ * rubric_items has no reliable natural key to upsert on — the source
+ * spreadsheet reuses criterion_code across genuinely different items in a
+ * few spots (see supabase/migrations/0005_drop_rubric_items_code_unique.sql).
+ * Replace-all keeps this script safe to re-run instead of duplicating rows.
+ */
+async function replaceAll(table: string, rows: object[]) {
+  const { error: deleteError } = await supabase
+    .from(table)
+    .delete()
+    .not("id", "is", null);
+  if (deleteError) throw new Error(`${table} (clear): ${deleteError.message}`);
+
+  if (rows.length === 0) return;
+  const { error } = await supabase.from(table).insert(rows);
+  if (error) throw new Error(`${table}: ${error.message}`);
+  console.log(`  ${table}: ${rows.length} rows`);
+}
+
 async function idMapByCode(table: string, codeColumn: string) {
   const { data, error } = await supabase.from(table).select("*");
   if (error) throw new Error(`${table}: ${error.message}`);
@@ -175,7 +194,7 @@ async function main() {
       active: toBool(r.active),
     };
   });
-  await upsert("rubric_items", itemRows, "rubric_version_id,criterion_code");
+  await replaceAll("rubric_items", itemRows);
 
   console.log("Done.");
 }

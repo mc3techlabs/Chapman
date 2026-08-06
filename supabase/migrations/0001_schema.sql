@@ -141,8 +141,11 @@ create table if not exists public.rubric_items (
   is_required boolean not null default false,
   default_point_value integer not null default 1,
   display_order integer not null default 0,
-  active boolean not null default true,
-  unique(rubric_version_id, criterion_code)
+  active boolean not null default true
+  -- No unique(rubric_version_id, criterion_code): the source rubric reuses
+  -- codes like "7.2" or "1.8" across genuinely different items in a few
+  -- spots, and display_order resets per subsection too. `id` is the only
+  -- reliable key here.
 );
 
 create table if not exists public.submissions (
