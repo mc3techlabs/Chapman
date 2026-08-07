@@ -110,6 +110,17 @@ against.
    `chapter_user_links`.
 8. Set up reviewer assignments via `/admin/reviewers` in the app, or by
    loading `reviewer_assignments_template.csv` once it's filled in.
+9. Open a reporting window for the current term (chapters/reviewers see
+   whichever window is `is_active` and most recently created as "current" —
+   see `lib/reportingPeriod.ts`):
+   ```bash
+   SUPABASE_URL=https://<project>.supabase.co \
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+   npm run window:create -- --term=spring --year=2027 \
+     --opens=2027-01-01 --closes=2027-05-01
+   ```
+   `--term` is `fall` or `spring`. Add `--inactive` to create one without
+   making it the current window yet.
 
 ## Vercel deployment checklist
 
