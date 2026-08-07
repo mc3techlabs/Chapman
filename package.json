@@ -10,7 +10,8 @@
     "db:migrate": "tsx scripts/run-migrations.ts",
     "db:seed": "tsx scripts/import-seed.ts",
     "invite:user": "tsx scripts/invite-user.ts",
-    "window:create": "tsx scripts/create-reporting-window.ts"
+    "window:create": "tsx scripts/create-reporting-window.ts",
+    "chapters:create-logins": "tsx scripts/create-chapter-logins.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.4",

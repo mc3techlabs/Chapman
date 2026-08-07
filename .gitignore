@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# generated credentials — never commit real chapter/reviewer passwords
+chapter-logins-*.csv

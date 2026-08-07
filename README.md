@@ -106,8 +106,24 @@ against.
    logins (not tied to one person's inbox), create the user via the
    Supabase dashboard (Authentication -> Users -> Add user) instead,
    setting `role_code: "chapter"` in raw user metadata.
-7. Link each chapter's shared auth user to its chapter row in
-   `chapter_user_links`.
+7. Create chapter shared logins. Chapters have no email address in the
+   source data (a chapter is a shared account, not a person), so this is
+   different from the reviewer invite flow — it generates a synthetic
+   login email + random password per chapter and links it via
+   `chapter_user_links`:
+   ```bash
+   SUPABASE_URL=https://<project>.supabase.co \
+   SUPABASE_SERVICE_ROLE_KEY=<service-role-key> \
+   npm run chapters:create-logins -- --count=5
+   # or specific chapters:
+   npm run chapters:create-logins -- --keys=1,23,45
+   ```
+   Writes a CSV of `chapter_key,chapter_name,district,region,email,password`
+   to `--out` (default `chapter-logins-<timestamp>.csv`, gitignored) — it
+   has real passwords in plain text. Distribute it to chapters securely and
+   delete it once they have their credentials; there's no other record of
+   the plaintext password afterward. `--force` recreates a chapter's login
+   (unlinks + creates fresh) if it already has one.
 8. Set up reviewer assignments via `/admin/reviewers` in the app, or by
    loading `reviewer_assignments_template.csv` once it's filled in.
 9. Open a reporting window for the current term (chapters/reviewers see
@@ -192,15 +208,13 @@ script.
 
 ## What to do next
 
-1. Named reviewer/admin accounts can be provisioned via
-   `scripts/invite-user.ts` (invite-email flow). Chapter shared logins
-   still need a flow — those aren't tied to one person's inbox, so an
-   invite email doesn't fit; likely an in-app admin action that calls
-   `supabase.auth.admin.createUser` with a generated temporary password,
-   from a secure server context.
-2. Fill in `reporting_windows_template.csv` with real Fall/Spring open and
-   close dates and load it, so the app stops relying on the calendar
-   fallback in `lib/reportingPeriod.ts`.
+1. Named reviewer/admin accounts: `scripts/invite-user.ts` (invite-email
+   flow). Chapter shared logins: `scripts/create-chapter-logins.ts`
+   (generated email + password, since a shared account has no real inbox).
+   Both are CLI-only for now — an in-app admin UI for either would remove
+   the need to run scripts by hand.
+2. A reporting window is open (see `lib/reportingPeriod.ts` /
+   `scripts/create-reporting-window.ts`) — add more as terms roll over.
 3. Fill in and load the reviewer directory + assignments templates (or use
    `/admin/reviewers` one at a time).
 4. Build out the chapter CSV import action
