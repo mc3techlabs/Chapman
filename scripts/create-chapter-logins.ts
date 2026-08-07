@@ -98,25 +98,30 @@ async function main() {
   }[] = [];
 
   for (const chapter of chapters) {
-    if (force) {
-      const { error: unlinkError } = await supabase
-        .from("chapter_user_links")
-        .delete()
-        .eq("chapter_id", chapter.id);
-      if (unlinkError) {
-        throw new Error(`unlink ${chapter.chapter_key}: ${unlinkError.message}`);
-      }
-    } else {
-      const { data: existingLink } = await supabase
-        .from("chapter_user_links")
-        .select("id")
-        .eq("chapter_id", chapter.id)
-        .maybeSingle();
-      if (existingLink) {
+    const { data: existingLink } = await supabase
+      .from("chapter_user_links")
+      .select("id, profile_id")
+      .eq("chapter_id", chapter.id)
+      .maybeSingle();
+
+    if (existingLink) {
+      if (!force) {
         console.log(
           `Skipping ${chapter.chapter_name} (${chapter.chapter_key}) — already has a login. Use --force to recreate.`
         );
         continue;
+      }
+      // Deleting the auth user cascades to profiles -> chapter_user_links,
+      // so this also removes the stale link. Deleting only the link would
+      // leave an orphaned auth user and make createUser fail on the same
+      // email next.
+      const { error: deleteUserError } = await supabase.auth.admin.deleteUser(
+        existingLink.profile_id
+      );
+      if (deleteUserError) {
+        throw new Error(
+          `deleteUser ${chapter.chapter_key}: ${deleteUserError.message}`
+        );
       }
     }
 

@@ -18,28 +18,34 @@ alter table public.app_roles enable row level security;
 alter table public.report_terms enable row level security;
 alter table public.system_contacts enable row level security;
 
+-- security definer + search_path pin is required here, not optional: these
+-- functions query public.profiles, and profiles' own RLS policy
+-- (profiles_self_select, below) calls is_admin()/is_exec() — without
+-- security definer to bypass RLS on that internal lookup, evaluating one
+-- of these functions re-triggers profiles' RLS, which calls them again,
+-- recursing until Postgres hits "stack depth limit exceeded" (54001).
 create or replace function public.current_role_code()
-returns text language sql stable as $$
+returns text language sql stable security definer set search_path = public as $$
   select role_code from public.profiles where id = auth.uid()
 $$;
 
 create or replace function public.is_admin()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(public.current_role_code() = 'admin', false)
 $$;
 
 create or replace function public.is_exec()
-returns boolean language sql stable as $$
+returns boolean language sql stable security definer set search_path = public as $$
   select coalesce(public.current_role_code() = 'executive_director', false)
 $$;
 
 create or replace function public.current_user_district()
-returns text language sql stable as $$
+returns text language sql stable security definer set search_path = public as $$
   select district from public.profiles where id = auth.uid()
 $$;
 
 create or replace function public.current_user_region()
-returns text language sql stable as $$
+returns text language sql stable security definer set search_path = public as $$
   select region from public.profiles where id = auth.uid()
 $$;
 
