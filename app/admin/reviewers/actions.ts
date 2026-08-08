@@ -45,7 +45,19 @@ export async function createReviewerAccount(
     return { status: "error", message: "Region is required for a Regional Vice President." };
   }
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return {
+      status: "error",
+      message:
+        err instanceof Error
+          ? err.message
+          : "SUPABASE_SERVICE_ROLE_KEY is not configured for this deployment.",
+    };
+  }
+
   const siteUrl = await currentSiteUrl();
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
