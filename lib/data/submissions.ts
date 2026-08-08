@@ -133,6 +133,32 @@ export async function recalcSubmissionScore(
     .single();
 }
 
+/**
+ * Updates only final_score from saved responses — used on every answer
+ * click, where max_score can't have changed. recalcSubmissionScore (both
+ * scores, 3 round-trips) is for submitReport, where staleness would
+ * actually matter.
+ */
+export async function recalcFinalScoreOnly(
+  supabase: Client,
+  submissionId: string
+) {
+  const { data: responses } = await supabase
+    .from("submission_item_responses")
+    .select("awarded_points")
+    .eq("submission_id", submissionId);
+
+  const finalScore = (responses ?? []).reduce(
+    (sum, r) => sum + r.awarded_points,
+    0
+  );
+
+  return supabase
+    .from("submissions")
+    .update({ final_score: finalScore })
+    .eq("id", submissionId);
+}
+
 /** Chapter action: moves a draft into the parallel DD/RVP review stage. */
 export async function submitReport(
   supabase: Client,

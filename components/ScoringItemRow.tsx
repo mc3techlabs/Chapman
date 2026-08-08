@@ -1,4 +1,5 @@
 import type { RubricItemWithResponse } from "@/types/domain";
+import { ScoreButton } from "./ScoreButton";
 
 type AnswerAction = (answerYes: boolean) => Promise<void>;
 
@@ -30,28 +31,26 @@ export function ScoringItemRow({
       {editAction ? (
         <div className="flex shrink-0 gap-2">
           <form action={editAction.bind(null, true)}>
-            <button
-              type="submit"
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+            <ScoreButton
+              colorClass={
                 answered && isYes
                   ? "bg-chapman-green text-white"
                   : "bg-chapman-green-soft text-chapman-green hover:brightness-95"
-              }`}
+              }
             >
               Yes
-            </button>
+            </ScoreButton>
           </form>
           <form action={editAction.bind(null, false)}>
-            <button
-              type="submit"
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+            <ScoreButton
+              colorClass={
                 answered && !isYes
                   ? "bg-chapman-red text-white"
                   : "bg-chapman-red-soft text-chapman-red hover:brightness-95"
-              }`}
+              }
             >
               No
-            </button>
+            </ScoreButton>
           </form>
         </div>
       ) : (

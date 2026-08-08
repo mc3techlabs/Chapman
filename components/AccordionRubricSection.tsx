@@ -1,7 +1,11 @@
 import type { RubricSectionWithContent } from "@/types/domain";
 import { ScoringItemRow } from "./ScoringItemRow";
 
-type AnswerAction = (rubricItemId: string, answerYes: boolean) => Promise<void>;
+type AnswerAction = (
+  rubricItemId: string,
+  pointValue: number,
+  answerYes: boolean
+) => Promise<void>;
 
 export function AccordionRubricSection({
   section,
@@ -10,7 +14,7 @@ export function AccordionRubricSection({
 }: {
   section: RubricSectionWithContent;
   defaultOpen?: boolean;
-  /** Bound server action (submissionId already applied) taking (rubricItemId, answerYes). Omit for read-only. */
+  /** Bound server action (submissionId already applied) taking (rubricItemId, pointValue, answerYes). Omit for read-only. */
   editAction?: AnswerAction;
 }) {
   const allItems = section.subsections.flatMap((s) => s.items);
@@ -40,7 +44,9 @@ export function AccordionRubricSection({
                   key={item.id}
                   item={item}
                   editAction={
-                    editAction ? editAction.bind(null, item.id) : undefined
+                    editAction
+                      ? editAction.bind(null, item.id, item.default_point_value)
+                      : undefined
                   }
                 />
               ))}
