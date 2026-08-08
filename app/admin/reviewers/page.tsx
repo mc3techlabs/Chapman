@@ -4,6 +4,7 @@ import { listAllChapters } from "@/lib/data/chapters";
 import { listAssignments } from "@/lib/data/reviewerAssignments";
 import { listProfilesByRole } from "@/lib/data/profiles";
 import { assignReviewers } from "./actions";
+import { CreateReviewerForm } from "./CreateReviewerForm";
 import type { AssignmentWithNames } from "@/types/domain";
 
 export default async function AdminReviewersPage() {
@@ -17,25 +18,37 @@ export default async function AdminReviewersPage() {
     listProfilesByRole(supabase, "rvp"),
   ]);
 
+  const districts = Array.from(new Set(chapters.map((c) => c.district))).sort();
+  const regions = Array.from(new Set(chapters.map((c) => c.region))).sort();
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-xl font-extrabold text-chapman-ink">
         Reviewer Assignment
       </h1>
       <p className="text-sm text-chapman-muted">
-        Assign one District Director and one Regional Vice President per
-        chapter. Reviewer accounts must already exist as named profiles —
-        create them in Supabase Auth first, then they appear here.
+        Create named District Director / RVP accounts below, then assign
+        them to chapters.
       </p>
 
+      <div className="rounded-xl border border-chapman-line bg-white p-5">
+        <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-chapman-muted">
+          Create Reviewer Account
+        </h2>
+        <p className="mb-4 text-sm text-chapman-muted">
+          Sends a Supabase invite email — the reviewer sets their own
+          password by clicking the link, so this never handles a password.
+        </p>
+        <CreateReviewerForm districts={districts} regions={regions} />
+      </div>
+
       <div className="rounded-xl border border-chapman-line bg-[#faf7ee] p-5 text-sm text-chapman-muted">
-        <span className="font-bold text-chapman-ink">Bulk import:</span> named
-        reviewer accounts and chapter-to-reviewer mappings can be bulk-loaded
-        from <code>supabase/seed/reviewer_directory_template.csv</code> and{" "}
-        <code>supabase/seed/reviewer_assignments_template.csv</code>. In-app
-        CSV upload for these isn&apos;t wired up yet — use the assign form
-        below for one-off changes, or load the CSVs via Supabase for bulk
-        setup.
+        <span className="font-bold text-chapman-ink">Bulk import:</span> for
+        many reviewers at once, bulk-load from{" "}
+        <code>supabase/seed/reviewer_directory_template.csv</code> and{" "}
+        <code>supabase/seed/reviewer_assignments_template.csv</code> instead
+        of the form above. In-app CSV upload for these isn&apos;t wired up
+        yet — load the CSVs via Supabase for bulk setup.
       </div>
 
       <div className="rounded-xl border border-chapman-line bg-white p-5">

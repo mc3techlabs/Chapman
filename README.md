@@ -142,12 +142,18 @@ against.
 
 1. Push this repo to GitHub (already connected: `mc3techlabs/Chapman`).
 2. Import the repo at vercel.com/new.
-3. **Before** clicking Deploy, expand Environment Variables and add the two
-   `NEXT_PUBLIC_*` values from `.env.example` — click into each Value field
-   and confirm the real text is there (it's easy to leave the gray
-   placeholder example showing and think it's filled in). The service-role
-   variables are only needed for running scripts locally — do not add them
-   to Vercel.
+3. **Before** clicking Deploy, expand Environment Variables and add:
+   - `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` — required
+     for the app to run at all.
+   - `SUPABASE_SERVICE_ROLE_KEY` — required for the in-app "Create Reviewer
+     Account" form on `/admin/reviewers` (`app/admin/reviewers/actions.ts`
+     uses it server-side to send invite emails; never exposed to the
+     browser since it has no `NEXT_PUBLIC_` prefix). Not needed if you'll
+     only ever provision reviewers via the CLI scripts instead.
+
+   Click into each Value field and confirm the real text is there — it's
+   easy to leave the gray placeholder example showing and think it's
+   filled in.
 4. Deploy. Default Next.js build/output settings work as-is.
 5. Currently live at https://chapman-wheat.vercel.app.
 
@@ -164,8 +170,11 @@ it's a Vercel support matter.
 
 See `.env.example`. `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 are required for the app to run at all (client + server + middleware).
-`SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are only used by the local seed
-script.
+`SUPABASE_URL` (no prefix) is only used by the local CLI scripts.
+`SUPABASE_SERVICE_ROLE_KEY` is used by those same scripts **and** by the
+in-app reviewer-invite form in `/admin/reviewers` — so unlike a typical
+"local-only" service key, it needs to be set in Vercel too if you want that
+in-app form to work (see the Vercel checklist above).
 
 ## Assumptions made while scaffolding
 
@@ -190,10 +199,11 @@ script.
 - **Resubmission**: a `returned` submission is edited in place (same row)
   and re-submitting resets all three review statuses to `pending` — there's
   no separate submission history/versioning table.
-- **Reviewer assignment UI**: `/admin/reviewers` assigns from *existing*
-  named profiles (created in Supabase Auth first); it does not create Auth
-  users. Bulk CSV upload for the reviewer directory / assignments templates
-  is documented but not wired up in-app yet (see that page).
+- **Reviewer assignment UI**: `/admin/reviewers` can both create a named DD/
+  RVP account (invite-email flow, via `SUPABASE_SERVICE_ROLE_KEY`) and
+  assign existing ones to chapters. Bulk CSV upload for the reviewer
+  directory / assignments templates is documented but not wired up in-app
+  (see that page) — use the CLI scripts or the one-at-a-time form instead.
 - **Chapter CSV import**: `/admin/chapters` has a working file input but
   the parse-and-upsert action is a stub (`app/admin/chapters/actions.ts`) —
   the initial 879-chapter load goes through `scripts/import-seed.ts`

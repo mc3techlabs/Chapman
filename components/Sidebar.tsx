@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "@/app/login/actions";
 import type { AppRoleCode } from "@/types/database";
@@ -52,6 +53,16 @@ export function Sidebar({
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-chapman-sidebar p-6 text-white">
       <div className="mb-8 text-center">
+        <div className="mx-auto mb-3 w-fit rounded-lg bg-white p-1.5">
+          <Image
+            src="/alpha-phi-alpha-crest.jpg"
+            alt="Alpha Phi Alpha Fraternity crest"
+            width={840}
+            height={806}
+            priority
+            className="h-14 w-auto"
+          />
+        </div>
         <div className="text-lg font-extrabold leading-tight">
           Chapman Reporting Portal
         </div>
