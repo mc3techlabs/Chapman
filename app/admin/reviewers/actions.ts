@@ -96,7 +96,7 @@ export async function createReviewerAccount(
 
   const { data: matchingChapters, error: chaptersError } = await admin
     .from("chapters")
-    .select("id")
+    .select("id, region")
     .eq(scopeColumn, scopeValue);
 
   if (chaptersError) {
@@ -106,10 +106,34 @@ export async function createReviewerAccount(
     };
   }
 
+  // A district sits in exactly one region — if that region already has an
+  // active RVP, pair them in on the same chapters instead of leaving the
+  // RVP column empty until someone notices (a district's DD and its
+  // region's RVP being created in either order should both end up fully
+  // assigned, not just whichever one happened to be created second).
+  let pairedRvpId: string | null = null;
+  if (role === "district_director" && matchingChapters && matchingChapters.length > 0) {
+    const districtRegion = matchingChapters[0].region;
+    const { data: existingRvps } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("role_code", "rvp")
+      .eq("region", districtRegion)
+      .eq("is_active", true)
+      .limit(1);
+    pairedRvpId = existingRvps?.[0]?.id ?? null;
+  }
+
   if (matchingChapters && matchingChapters.length > 0) {
     const assignmentRows = matchingChapters.map((c) =>
       role === "district_director"
-        ? { chapter_id: c.id, district_director_profile_id: data.user.id }
+        ? {
+            chapter_id: c.id,
+            district_director_profile_id: data.user.id,
+            ...(pairedRvpId
+              ? { regional_vice_president_profile_id: pairedRvpId }
+              : {}),
+          }
         : { chapter_id: c.id, regional_vice_president_profile_id: data.user.id }
     );
     const { error: assignError } = await admin
@@ -130,7 +154,8 @@ export async function createReviewerAccount(
     message:
       `Invited ${fullName} (${email}) as ${role === "district_director" ? "District Director" : "RVP"}` +
       (chapterCount > 0
-        ? ` — auto-assigned to ${chapterCount} chapter${chapterCount === 1 ? "" : "s"}.`
+        ? ` — auto-assigned to ${chapterCount} chapter${chapterCount === 1 ? "" : "s"}` +
+          (pairedRvpId ? " (paired with the existing RVP for that region)." : ".")
         : "."),
   };
 }
