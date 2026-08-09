@@ -87,10 +87,51 @@ export async function createReviewerAccount(
     };
   }
 
+  // Auto-assign this reviewer to every chapter in their district/region —
+  // a DD/RVP covers their whole district/region, not one chapter at a time.
+  // Upserting only the relevant column (not the other reviewer's) so an
+  // existing DD/RVP assignment on a chapter isn't clobbered.
+  const scopeColumn = role === "district_director" ? "district" : "region";
+  const scopeValue = role === "district_director" ? district : region;
+
+  const { data: matchingChapters, error: chaptersError } = await admin
+    .from("chapters")
+    .select("id")
+    .eq(scopeColumn, scopeValue);
+
+  if (chaptersError) {
+    return {
+      status: "error",
+      message: `Invite sent, but failed to look up chapters for auto-assignment: ${chaptersError.message}`,
+    };
+  }
+
+  if (matchingChapters && matchingChapters.length > 0) {
+    const assignmentRows = matchingChapters.map((c) =>
+      role === "district_director"
+        ? { chapter_id: c.id, district_director_profile_id: data.user.id }
+        : { chapter_id: c.id, regional_vice_president_profile_id: data.user.id }
+    );
+    const { error: assignError } = await admin
+      .from("reviewer_assignments")
+      .upsert(assignmentRows, { onConflict: "chapter_id" });
+    if (assignError) {
+      return {
+        status: "error",
+        message: `Invite sent, but failed to auto-assign chapters: ${assignError.message}`,
+      };
+    }
+  }
+
   revalidatePath("/admin/reviewers");
+  const chapterCount = matchingChapters?.length ?? 0;
   return {
     status: "success",
-    message: `Invited ${fullName} (${email}) as ${role === "district_director" ? "District Director" : "RVP"}.`,
+    message:
+      `Invited ${fullName} (${email}) as ${role === "district_director" ? "District Director" : "RVP"}` +
+      (chapterCount > 0
+        ? ` — auto-assigned to ${chapterCount} chapter${chapterCount === 1 ? "" : "s"}.`
+        : "."),
   };
 }
 

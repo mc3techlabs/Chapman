@@ -5,6 +5,7 @@ import { listAssignments } from "@/lib/data/reviewerAssignments";
 import { listProfilesByRole } from "@/lib/data/profiles";
 import { assignReviewers } from "./actions";
 import { CreateReviewerForm } from "./CreateReviewerForm";
+import { ChapterCombobox } from "@/components/ChapterCombobox";
 import type { AssignmentWithNames } from "@/types/domain";
 
 export default async function AdminReviewersPage() {
@@ -38,6 +39,9 @@ export default async function AdminReviewersPage() {
         <p className="mb-4 text-sm text-chapman-muted">
           Sends a Supabase invite email — the reviewer sets their own
           password by clicking the link, so this never handles a password.
+          Creating a District Director auto-assigns them to every chapter in
+          their district (and an RVP to every chapter in their region) —
+          use Assign / Update below only for one-off overrides.
         </p>
         <CreateReviewerForm districts={districts} regions={regions} />
       </div>
@@ -60,17 +64,7 @@ export default async function AdminReviewersPage() {
             <label className="text-xs font-semibold text-chapman-muted">
               Chapter
             </label>
-            <select
-              name="chapter_id"
-              required
-              className="rounded-lg border border-chapman-line px-3 py-2 text-sm"
-            >
-              {chapters.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.chapter_name} ({c.chapter_key})
-                </option>
-              ))}
-            </select>
+            <ChapterCombobox chapters={chapters} name="chapter_id" />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-chapman-muted">
