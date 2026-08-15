@@ -184,6 +184,10 @@ create table if not exists public.submission_item_responses (
 create table if not exists public.approval_actions (
   id uuid primary key default gen_random_uuid(),
   submission_id uuid not null references public.submissions(id) on delete cascade,
+  -- Deliberately no ON DELETE behavior (defaults to RESTRICT): this is the
+  -- organizational record of who approved/returned a submission, so
+  -- deleting a reviewer with approval history should be a blocked,
+  -- deliberate decision, not something that silently orphans the record.
   reviewer_profile_id uuid not null references public.profiles(id),
   reviewer_role_code text not null references public.app_roles(code),
   action text not null check (action in ('approved','returned','reopened')),
@@ -194,7 +198,11 @@ create index if not exists idx_approval_actions_submission on public.approval_ac
 
 create table if not exists public.audit_log (
   id uuid primary key default gen_random_uuid(),
-  actor_profile_id uuid references public.profiles(id),
+  -- Unlike approval_actions above, this is a general activity trail, not a
+  -- formal per-submission record — ON DELETE SET NULL keeps the log entry
+  -- (action, metadata, timestamp) but lets the actor's profile actually be
+  -- deleted instead of blocking it.
+  actor_profile_id uuid references public.profiles(id) on delete set null,
   entity_type text not null,
   entity_id uuid,
   action text not null,

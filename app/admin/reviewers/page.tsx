@@ -3,9 +3,14 @@ import { requireRole } from "@/lib/auth/roles";
 import { listAllChapters } from "@/lib/data/chapters";
 import { listAssignments } from "@/lib/data/reviewerAssignments";
 import { listProfilesByRole } from "@/lib/data/profiles";
-import { assignReviewers } from "./actions";
+import {
+  assignReviewers,
+  importReviewerDirectory,
+  importReviewerAssignments,
+} from "./actions";
 import { CreateReviewerForm } from "./CreateReviewerForm";
 import { ChapterCombobox } from "@/components/ChapterCombobox";
+import { CsvImportForm } from "@/components/CsvImportForm";
 import type { AssignmentWithNames } from "@/types/domain";
 
 export default async function AdminReviewersPage() {
@@ -46,13 +51,39 @@ export default async function AdminReviewersPage() {
         <CreateReviewerForm districts={districts} regions={regions} />
       </div>
 
-      <div className="rounded-xl border border-chapman-line bg-[#faf7ee] p-5 text-sm text-chapman-muted">
-        <span className="font-bold text-chapman-ink">Bulk import:</span> for
-        many reviewers at once, bulk-load from{" "}
-        <code>supabase/seed/reviewer_directory_template.csv</code> and{" "}
-        <code>supabase/seed/reviewer_assignments_template.csv</code> instead
-        of the form above. In-app CSV upload for these isn&apos;t wired up
-        yet — load the CSVs via Supabase for bulk setup.
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-chapman-line bg-white p-5">
+          <h2 className="mb-1 text-sm font-extrabold uppercase tracking-wide text-chapman-muted">
+            Bulk Import: Reviewer Directory
+          </h2>
+          <p className="mb-4 text-sm text-chapman-muted">
+            CSV shaped like{" "}
+            <code>supabase/seed/reviewer_directory_template.csv</code>{" "}
+            (full_name, email, role_code, district, region, is_active).
+            Invites new emails; updates existing ones in place.
+          </p>
+          <CsvImportForm
+            action={importReviewerDirectory}
+            buttonLabel="Import Directory CSV"
+            pendingLabel="Importing…"
+          />
+        </div>
+        <div className="rounded-xl border border-chapman-line bg-white p-5">
+          <h2 className="mb-1 text-sm font-extrabold uppercase tracking-wide text-chapman-muted">
+            Bulk Import: Reviewer Assignments
+          </h2>
+          <p className="mb-4 text-sm text-chapman-muted">
+            CSV shaped like{" "}
+            <code>supabase/seed/reviewer_assignments_template.csv</code>{" "}
+            (chapter_key + DD/RVP name/email). Run the directory import
+            first — reviewer accounts must already exist.
+          </p>
+          <CsvImportForm
+            action={importReviewerAssignments}
+            buttonLabel="Import Assignments CSV"
+            pendingLabel="Importing…"
+          />
+        </div>
       </div>
 
       <div className="rounded-xl border border-chapman-line bg-white p-5">

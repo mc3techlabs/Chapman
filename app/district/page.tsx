@@ -1,40 +1,82 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/roles";
-import { getDistrictRollup } from "@/lib/data/reporting";
+import { getDistrictRollup, getReportingTerms } from "@/lib/data/reporting";
 import { listChaptersForDistrict } from "@/lib/data/chapters";
+import { getCurrentReportingPeriod } from "@/lib/reportingPeriod";
 import { KpiCard } from "@/components/KpiCard";
+import { TermYearFilter } from "@/components/TermYearFilter";
 import type { DistrictRollupRow, Chapter } from "@/types/domain";
+import type { ReportTermCode } from "@/types/database";
 
-export default async function DistrictDashboardPage() {
+export default async function DistrictDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
   const profile = await requireRole(["district_director"]);
   const supabase = await createClient();
+  const params = await searchParams;
 
   const district = profile.district ?? "";
-  const [rollup, chapters] = await Promise.all([
-    getDistrictRollup(supabase, {}),
+
+  let termCode: ReportTermCode;
+  let reportingYear: number;
+  if (params.period && params.period.includes(":")) {
+    const [t, y] = params.period.split(":");
+    termCode = t as ReportTermCode;
+    reportingYear = Number(y);
+  } else {
+    const current = await getCurrentReportingPeriod(supabase);
+    termCode = current.termCode;
+    reportingYear = current.reportingYear;
+  }
+
+  const [rollup, chapters, terms] = await Promise.all([
+    getDistrictRollup(supabase, { termCode, reportingYear }),
     listChaptersForDistrict(supabase, district),
+    getReportingTerms(supabase),
   ]);
 
-  const districtRollup = rollup.filter(
+  const current = rollup.find(
     (r: DistrictRollupRow) => r.district === district
   );
-  const latest = districtRollup[0];
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-extrabold text-chapman-ink">
-        {district} District Dashboard
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-extrabold text-chapman-ink">
+          {district} District Dashboard
+        </h1>
+        <TermYearFilter
+          terms={terms}
+          currentTerm={termCode}
+          currentYear={reportingYear}
+        />
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiCard label="Chapters" value={chapters.length} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <KpiCard
-          label="Submissions Reported"
-          value={latest?.submission_count ?? 0}
+          label="Active Chapters"
+          value={
+            current?.total_chapters ??
+            chapters.filter((c) => c.status_code === "Active").length
+          }
         />
         <KpiCard
-          label="District Avg. Score"
-          value={latest ? `${latest.pct_score}%` : "—"}
+          label="Completion Rate"
+          value={current ? `${current.completion_rate_pct}%` : "—"}
+        />
+        <KpiCard label="Submitted" value={current?.submitted_count ?? 0} />
+        <KpiCard label="Returned" value={current?.returned_count ?? 0} />
+        <KpiCard label="Finalized" value={current?.finalized_count ?? 0} />
+        <KpiCard
+          label="Avg. Score"
+          value={current ? `${current.pct_score}%` : "—"}
+          sublabel={
+            current
+              ? `${current.total_points} / ${current.total_possible_points} pts`
+              : undefined
+          }
         />
       </div>
 

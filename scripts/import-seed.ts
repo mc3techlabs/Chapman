@@ -14,7 +14,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createClient } from "@supabase/supabase-js";
-import { parseCsv, toBool, toInt, toIntOrNull } from "./csv";
+import { parseCsv, toBool, toInt, toIntOrNull } from "@/lib/csv";
 
 const SEED_DIR = join(__dirname, "..", "supabase", "seed");
 

@@ -3,6 +3,7 @@ import type { Database, ReportTermCode } from "@/types/database";
 import type { Submission, SubmissionWithChapter } from "@/types/domain";
 import { getActiveRubricVersion } from "./rubrics";
 import { getChapterById } from "./chapters";
+import { logAudit } from "./audit";
 
 type Client = SupabaseClient<Database>;
 
@@ -167,7 +168,7 @@ export async function submitReport(
 ) {
   await recalcSubmissionScore(supabase, submissionId);
 
-  return supabase
+  const result = await supabase
     .from("submissions")
     .update({
       workflow_status: "submitted",
@@ -180,4 +181,13 @@ export async function submitReport(
     .eq("id", submissionId)
     .select()
     .single();
+
+  await logAudit(supabase, {
+    actorProfileId: submittedByProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_submitted",
+  });
+
+  return result;
 }

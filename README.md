@@ -199,15 +199,40 @@ in-app form to work (see the Vercel checklist above).
 - **Resubmission**: a `returned` submission is edited in place (same row)
   and re-submitting resets all three review statuses to `pending` — there's
   no separate submission history/versioning table.
-- **Reviewer assignment UI**: `/admin/reviewers` can both create a named DD/
-  RVP account (invite-email flow, via `SUPABASE_SERVICE_ROLE_KEY`) and
-  assign existing ones to chapters. Bulk CSV upload for the reviewer
-  directory / assignments templates is documented but not wired up in-app
-  (see that page) — use the CLI scripts or the one-at-a-time form instead.
-- **Chapter CSV import**: `/admin/chapters` has a working file input but
-  the parse-and-upsert action is a stub (`app/admin/chapters/actions.ts`) —
-  the initial 879-chapter load goes through `scripts/import-seed.ts`
-  instead. Wire the stub up if in-app reimport/refresh is needed later.
+- **Reviewer assignment UI**: `/admin/reviewers` can create a named DD/RVP
+  account one at a time (invite-email flow, via `SUPABASE_SERVICE_ROLE_KEY`),
+  bulk-import a reviewer directory CSV, bulk-import a reviewer assignments
+  CSV, and manually assign/override per chapter.
+- **Chapter CSV import**: `/admin/chapters` validates and upserts a real
+  CSV (Key uniqueness, Type resolution, Status against the accepted list) —
+  `app/admin/chapters/actions.ts`. The initial 879-chapter load still went
+  through `scripts/import-seed.ts`; this is for ongoing re-imports.
+- **Reopening a finalized submission**: `reopenSubmission` in
+  `lib/data/approvals.ts` sets `workflow_status` back to `returned` rather
+  than resetting district/regional/executive review statuses directly —
+  resubmitting through `submitReport` already resets all three to
+  `pending`, restarting the full parallel-approval cycle naturally. Admin
+  and Executive Director can trigger it from the finalized-submission view
+  under `/national/approvals/[id]`.
+- **`audit_log`**: written from the key workflow actions (submit, DD/RVP/ED
+  approve, return, reopen) and the two bulk admin actions (chapter import,
+  reviewer invite) via `lib/data/audit.ts`. Deliberately different
+  `ON DELETE` behavior from `approval_actions`: `audit_log.actor_profile_id`
+  is `SET NULL` (a general activity trail, the log entry should outlive the
+  actor), while `approval_actions.reviewer_profile_id` stays `RESTRICT` — a
+  record of who approved/returned a submission shouldn't silently orphan
+  when that reviewer's account is deleted; deleting them should be blocked
+  until that's handled deliberately. Found this exact distinction the hard
+  way — see `0007_audit_log_actor_set_null_on_delete.sql`.
+- **Dashboard completion rate**: `v_district_rollup` / `v_region_rollup` /
+  `v_national_rollup` are built `LEFT JOIN` from the active-chapter roster
+  (`status_code = 'Active'`) cross-joined against every term/year that's
+  ever had a submission or an open reporting window — not `INNER JOIN` from
+  submissions. A chapter that hasn't started its report still has to count
+  in the denominator, or completion rate is meaningless (3 finalized out of
+  the only 3 chapters that have even been touched reads as "100%" when 57
+  others haven't started). `v_submission_rollup` itself is still a plain
+  join, since it's meant to list submissions that actually exist.
 - **Admin role provisioning**: the first `admin` profile has to be
   provisioned via `scripts/invite-user.ts` (or the Supabase dashboard) —
   there's no self-serve admin signup.
@@ -218,25 +243,22 @@ in-app form to work (see the Vercel checklist above).
 
 ## What to do next
 
-1. Named reviewer/admin accounts: `scripts/invite-user.ts` (invite-email
-   flow). Chapter shared logins: `scripts/create-chapter-logins.ts`
-   (generated email + password, since a shared account has no real inbox).
-   Both are CLI-only for now — an in-app admin UI for either would remove
-   the need to run scripts by hand.
-2. A reporting window is open (see `lib/reportingPeriod.ts` /
-   `scripts/create-reporting-window.ts`) — add more as terms roll over.
-3. Fill in and load the reviewer directory + assignments templates (or use
-   `/admin/reviewers` one at a time).
-4. Build out the chapter CSV import action
-   (`app/admin/chapters/actions.ts`) if ongoing in-app chapter master
-   updates are needed, beyond the one-time `db:seed` load.
-5. Add a rubric editing UI in `/admin/rubrics` if rubric content needs to
+1. Chapter shared logins: `scripts/create-chapter-logins.ts` (generated
+   email + password, since a shared account has no real inbox) is still
+   CLI-only — an in-app admin flow would remove the need to run it by hand.
+2. Open more reporting windows as terms roll over (`/admin` doesn't have a
+   UI for this yet — use `scripts/create-reporting-window.ts`).
+3. Add a rubric editing UI in `/admin/rubrics` if rubric content needs to
    change without going through SQL.
-6. Regenerate `types/database.ts` from the live schema
+4. Regenerate `types/database.ts` from the live schema
    (`npx supabase gen types typescript --project-id <id>`) once the project
    exists, to catch drift from these hand-written types.
-7. Add automated tests around the approval workflow
+5. Add automated tests around the approval workflow
    (`lib/data/approvals.ts`) — it's the part of the app where a bug would
    be hardest to notice (a submission skipping the parallel-approval gate).
-8. Visual pass on the UI — current screens are implementation-ready but
+6. `profiles.is_active` exists but isn't checked anywhere yet (RLS,
+   `listProfilesByRole`, login) — deactivating a reviewer instead of
+   deleting them (to keep their `approval_actions` history intact, see
+   above) doesn't actually stop them from acting until this is wired up.
+7. Visual pass on the UI — current screens are implementation-ready but
    intentionally not pixel-polished.

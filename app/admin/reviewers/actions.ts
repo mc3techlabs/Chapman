@@ -6,7 +6,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/auth/roles";
 import { upsertAssignment } from "@/lib/data/reviewerAssignments";
+import { parseCsv } from "@/lib/csv";
+import { logAudit } from "@/lib/data/audit";
 import type { AppRoleCode } from "@/types/database";
+
+const VALID_ROLE_CODES: AppRoleCode[] = [
+  "chapter",
+  "district_director",
+  "rvp",
+  "executive_director",
+  "admin",
+];
 
 async function currentSiteUrl(): Promise<string> {
   const h = await headers();
@@ -24,7 +34,7 @@ export async function createReviewerAccount(
   _prevState: CreateReviewerState,
   formData: FormData
 ): Promise<CreateReviewerState> {
-  await requireRole(["admin"]);
+  const actorProfile = await requireRole(["admin"]);
 
   const fullName = String(formData.get("full_name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
@@ -147,6 +157,14 @@ export async function createReviewerAccount(
     }
   }
 
+  await logAudit(admin, {
+    actorProfileId: actorProfile.id,
+    entityType: "profile",
+    entityId: data.user.id,
+    action: "reviewer_invited",
+    metadata: { role, email, district, region },
+  });
+
   revalidatePath("/admin/reviewers");
   const chapterCount = matchingChapters?.length ?? 0;
   return {
@@ -177,4 +195,240 @@ export async function assignReviewers(formData: FormData) {
   });
 
   revalidatePath("/admin/reviewers");
+}
+
+export interface CsvImportResultState {
+  status: "idle" | "success" | "error";
+  message: string;
+}
+
+/**
+ * Bulk version of createReviewerAccount, from a CSV shaped like
+ * supabase/seed/reviewer_directory_template.csv (full_name, email,
+ * role_code, district, region, is_active). Invites new emails; updates
+ * name/role/district/region in place for emails that already have a
+ * profile, rather than erroring — the directory is meant to be re-uploaded
+ * as it's corrected, not just used once.
+ */
+export async function importReviewerDirectory(
+  _prevState: CsvImportResultState,
+  formData: FormData
+): Promise<CsvImportResultState> {
+  await requireRole(["admin"]);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { status: "error", message: "Choose a CSV file first." };
+  }
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    return { status: "error", message: "No rows found in that file." };
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (err) {
+    return {
+      status: "error",
+      message:
+        err instanceof Error
+          ? err.message
+          : "SUPABASE_SERVICE_ROLE_KEY is not configured for this deployment.",
+    };
+  }
+
+  const siteUrl = await currentSiteUrl();
+
+  let invited = 0;
+  let updated = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const line = i + 2;
+    const row = rows[i];
+    const fullName = (row["full_name"] ?? "").trim();
+    const email = (row["email"] ?? "").trim();
+    const roleCode = (row["role_code"] ?? "").trim() as AppRoleCode;
+    const district = (row["district"] ?? "").trim();
+    const region = (row["region"] ?? "").trim();
+    const isActive = (row["is_active"] ?? "true").trim().toLowerCase() !== "false";
+
+    if (!fullName || !email) {
+      skipped++; // blank template row
+      continue;
+    }
+    if (!isActive) {
+      skipped++;
+      continue;
+    }
+    if (!VALID_ROLE_CODES.includes(roleCode)) {
+      errors.push(`Row ${line} (${email}): invalid role_code "${row["role_code"]}".`);
+      continue;
+    }
+
+    const { data: existing } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existing) {
+      const { error: updateError } = await admin
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          role_code: roleCode,
+          district: district || null,
+          region: region || null,
+        })
+        .eq("id", existing.id);
+      if (updateError) {
+        errors.push(`Row ${line} (${email}): ${updateError.message}`);
+        continue;
+      }
+      updated++;
+      continue;
+    }
+
+    const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+      data: { role_code: roleCode, full_name: fullName },
+      redirectTo: `${siteUrl}/auth/confirm`,
+    });
+    if (error || !data.user) {
+      errors.push(`Row ${line} (${email}): ${error?.message ?? "invite failed"}`);
+      continue;
+    }
+    if (district || region) {
+      await admin
+        .from("profiles")
+        .update({ district: district || null, region: region || null })
+        .eq("id", data.user.id);
+    }
+    invited++;
+  }
+
+  revalidatePath("/admin/reviewers");
+
+  const summary = `Invited ${invited}, updated ${updated}${skipped > 0 ? `, skipped ${skipped} blank/inactive row(s)` : ""}.`;
+  if (errors.length > 0) {
+    const shown = errors.slice(0, 20);
+    const more = errors.length > 20 ? `\n…and ${errors.length - 20} more.` : "";
+    return {
+      status: invited + updated > 0 ? "success" : "error",
+      message: `${summary} ${errors.length} row${errors.length === 1 ? "" : "s"} failed:\n${shown.join("\n")}${more}`,
+    };
+  }
+  return { status: "success", message: summary };
+}
+
+/**
+ * Bulk assignment from a CSV shaped like
+ * supabase/seed/reviewer_assignments_template.csv (chapter_key,
+ * chapter_name, district, region, district_director_name,
+ * district_director_email, regional_vice_president_name,
+ * regional_vice_president_email). Reviewer accounts must already exist —
+ * run the directory import first. Only touches the DD/RVP column a row
+ * actually has an email for, same partial-upsert behavior as
+ * createReviewerAccount's auto-assignment.
+ */
+export async function importReviewerAssignments(
+  _prevState: CsvImportResultState,
+  formData: FormData
+): Promise<CsvImportResultState> {
+  await requireRole(["admin"]);
+  const supabase = await createClient();
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { status: "error", message: "Choose a CSV file first." };
+  }
+  const text = await file.text();
+  const rows = parseCsv(text);
+  if (rows.length === 0) {
+    return { status: "error", message: "No rows found in that file." };
+  }
+
+  let assigned = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const line = i + 2;
+    const row = rows[i];
+    const chapterKey = (row["chapter_key"] ?? "").trim();
+    const ddEmail = (row["district_director_email"] ?? "").trim();
+    const rvpEmail = (row["regional_vice_president_email"] ?? "").trim();
+
+    if (!chapterKey) {
+      errors.push(`Row ${line}: chapter_key is required.`);
+      continue;
+    }
+    if (!ddEmail && !rvpEmail) continue; // template row with nothing filled in yet
+
+    const { data: chapter } = await supabase
+      .from("chapters")
+      .select("id")
+      .eq("chapter_key", chapterKey)
+      .maybeSingle();
+    if (!chapter) {
+      errors.push(`Row ${line}: no chapter with key "${chapterKey}".`);
+      continue;
+    }
+
+    const update: Record<string, string> = {};
+
+    if (ddEmail) {
+      const { data: ddProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", ddEmail)
+        .maybeSingle();
+      if (!ddProfile) {
+        errors.push(
+          `Row ${line} (${chapterKey}): no reviewer account for DD email "${ddEmail}" — import the directory first.`
+        );
+        continue;
+      }
+      update.district_director_profile_id = ddProfile.id;
+    }
+
+    if (rvpEmail) {
+      const { data: rvpProfile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", rvpEmail)
+        .maybeSingle();
+      if (!rvpProfile) {
+        errors.push(
+          `Row ${line} (${chapterKey}): no reviewer account for RVP email "${rvpEmail}" — import the directory first.`
+        );
+        continue;
+      }
+      update.regional_vice_president_profile_id = rvpProfile.id;
+    }
+
+    const { error } = await supabase
+      .from("reviewer_assignments")
+      .upsert({ chapter_id: chapter.id, ...update }, { onConflict: "chapter_id" });
+    if (error) {
+      errors.push(`Row ${line} (${chapterKey}): ${error.message}`);
+      continue;
+    }
+    assigned++;
+  }
+
+  revalidatePath("/admin/reviewers");
+
+  const summary = `Assigned ${assigned} chapter${assigned === 1 ? "" : "s"}.`;
+  if (errors.length > 0) {
+    const shown = errors.slice(0, 20);
+    const more = errors.length > 20 ? `\n…and ${errors.length - 20} more.` : "";
+    return {
+      status: assigned > 0 ? "success" : "error",
+      message: `${summary} ${errors.length} row${errors.length === 1 ? "" : "s"} failed:\n${shown.join("\n")}${more}`,
+    };
+  }
+  return { status: "success", message: summary };
 }

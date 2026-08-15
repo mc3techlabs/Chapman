@@ -11,6 +11,7 @@ import { ReviewActionPanel } from "@/components/ReviewActionPanel";
 import {
   approveExecutiveSubmission,
   returnExecutiveSubmission,
+  reopenFinalizedSubmission,
 } from "../actions";
 
 export default async function ExecutiveApprovalDetailPage({
@@ -72,6 +73,22 @@ export default async function ExecutiveApprovalDetailPage({
             : "This submission is not yet awaiting Executive Director approval."
         }
       />
+
+      {submission.workflow_status === "finalized" && (
+        <form action={reopenFinalizedSubmission.bind(null, submission.id)}>
+          <button
+            type="submit"
+            className="rounded-lg border border-chapman-red px-4 py-2 text-sm font-bold text-chapman-red transition hover:bg-chapman-red-soft"
+          >
+            Reopen for Revision
+          </button>
+          <p className="mt-1 text-xs text-chapman-muted">
+            Sends this submission back to the chapter for edits. The full
+            District Director / RVP / Executive Director approval cycle
+            restarts once they resubmit.
+          </p>
+        </form>
+      )}
     </div>
   );
 }

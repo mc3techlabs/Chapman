@@ -8,6 +8,15 @@ export interface RollupFilter {
   reportingYear?: number;
 }
 
+/** Every term/year that's ever had a submission or an open reporting window — for dashboard filter dropdowns. */
+export async function getReportingTerms(supabase: Client) {
+  const { data } = await supabase
+    .from("v_reporting_terms")
+    .select("*")
+    .order("reporting_year", { ascending: false });
+  return data ?? [];
+}
+
 export async function getDistrictRollup(supabase: Client, filter?: RollupFilter) {
   let query = supabase.from("v_district_rollup").select("*");
   if (filter?.termCode) query = query.eq("term_code", filter.termCode);

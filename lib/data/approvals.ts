@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, AppRoleCode } from "@/types/database";
+import { logAudit } from "./audit";
 
 type Client = SupabaseClient<Database>;
 
@@ -40,6 +41,12 @@ export async function approveDistrict(
     "approved",
     comment
   );
+  await logAudit(supabase, {
+    actorProfileId: reviewerProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_approved_district",
+  });
 
   const { data: submission } = await supabase
     .from("submissions")
@@ -65,6 +72,12 @@ export async function approveRegional(
     "approved",
     comment
   );
+  await logAudit(supabase, {
+    actorProfileId: reviewerProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_approved_regional",
+  });
 
   const { data: submission } = await supabase
     .from("submissions")
@@ -113,6 +126,13 @@ export async function returnSubmission(
     "returned",
     comment
   );
+  await logAudit(supabase, {
+    actorProfileId: reviewerProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_returned",
+    metadata: { reviewer_role_code: reviewerRoleCode },
+  });
 
   const update: Database["public"]["Tables"]["submissions"]["Update"] = {
     workflow_status: "returned",
@@ -163,6 +183,12 @@ export async function approveExecutive(
     "approved",
     comment
   );
+  await logAudit(supabase, {
+    actorProfileId: reviewerProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_finalized",
+  });
 
   return supabase
     .from("submissions")
@@ -170,6 +196,57 @@ export async function approveExecutive(
       executive_review_status: "approved",
       workflow_status: "finalized",
     })
+    .eq("id", submissionId)
+    .select()
+    .single();
+}
+
+/**
+ * Reopens a finalized submission for editing. Sets workflow_status back to
+ * "returned" (the existing isEditable check already treats that as
+ * editable) rather than resetting district/regional/executive review
+ * statuses directly here — resubmitting through submitReport already resets
+ * all three to "pending", restarting the full parallel-approval cycle
+ * naturally once the chapter actually resubmits.
+ */
+export async function reopenSubmission(
+  supabase: Client,
+  submissionId: string,
+  actorProfileId: string,
+  actorRoleCode: Extract<AppRoleCode, "executive_director" | "admin">,
+  comment: string | null = null
+) {
+  const { data: submission } = await supabase
+    .from("submissions")
+    .select("workflow_status")
+    .eq("id", submissionId)
+    .single();
+
+  if (submission?.workflow_status !== "finalized") {
+    return {
+      data: null,
+      error: new Error("Only a finalized submission can be reopened."),
+    };
+  }
+
+  await logApprovalAction(
+    supabase,
+    submissionId,
+    actorProfileId,
+    actorRoleCode,
+    "reopened",
+    comment
+  );
+  await logAudit(supabase, {
+    actorProfileId,
+    entityType: "submission",
+    entityId: submissionId,
+    action: "submission_reopened",
+  });
+
+  return supabase
+    .from("submissions")
+    .update({ workflow_status: "returned" })
     .eq("id", submissionId)
     .select()
     .single();

@@ -21,38 +21,107 @@ select
 from public.submissions s
 join public.chapters c on c.id = s.chapter_id;
 
-create or replace view public.v_district_rollup as
-select
-  district,
-  region,
-  term_code,
-  reporting_year,
-  count(*) as submission_count,
-  sum(final_score) as total_points,
-  sum(max_score) as total_possible_points,
-  round(case when sum(max_score) > 0 then (sum(final_score)::numeric / sum(max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from public.v_submission_rollup
-group by district, region, term_code, reporting_year;
+-- district/region/national rollups are built LEFT JOIN from the active
+-- chapter roster (cross joined against every term/year that's ever been
+-- reported or opened), not INNER JOIN from submissions — a chapter that
+-- hasn't started its report yet still has to count in the denominator, or
+-- completion_rate_pct would be meaningless (3 finalized out of 3 that have
+-- even been touched reads as "100%" when 57 others haven't started).
+create or replace view public.v_reporting_terms as
+select term_code, reporting_year from public.submissions where reporting_year is not null
+union
+select term_code, reporting_year from public.reporting_windows where reporting_year is not null;
 
-create or replace view public.v_region_rollup as
-select
-  region,
-  term_code,
-  reporting_year,
-  count(*) as submission_count,
-  sum(final_score) as total_points,
-  sum(max_score) as total_possible_points,
-  round(case when sum(max_score) > 0 then (sum(final_score)::numeric / sum(max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from public.v_submission_rollup
-group by region, term_code, reporting_year;
+-- CREATE OR REPLACE VIEW can't rename/restructure columns, only the older
+-- definitions of these had different columns (submission_count, no
+-- completion_rate_pct, etc.) — drop first so the new shape can apply.
+drop view if exists public.v_district_rollup;
+drop view if exists public.v_region_rollup;
+drop view if exists public.v_national_rollup;
 
-create or replace view public.v_national_rollup as
+create view public.v_district_rollup as
+with scoped_chapters as (
+  select id, district, region from public.chapters where status_code = 'Active'
+)
 select
-  term_code,
-  reporting_year,
-  count(*) as submission_count,
-  sum(final_score) as total_points,
-  sum(max_score) as total_possible_points,
-  round(case when sum(max_score) > 0 then (sum(final_score)::numeric / sum(max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from public.v_submission_rollup
-group by term_code, reporting_year;
+  sc.district,
+  sc.region,
+  t.term_code,
+  t.reporting_year,
+  count(distinct sc.id) as total_chapters,
+  count(distinct s.chapter_id) as started_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
+  round(
+    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
+      / nullif(count(distinct sc.id), 0),
+    2
+  ) as completion_rate_pct,
+  coalesce(sum(s.final_score), 0) as total_points,
+  coalesce(sum(s.max_score), 0) as total_possible_points,
+  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
+from scoped_chapters sc
+cross join public.v_reporting_terms t
+left join public.submissions s
+  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
+group by sc.district, sc.region, t.term_code, t.reporting_year;
+
+create view public.v_region_rollup as
+with scoped_chapters as (
+  select id, region from public.chapters where status_code = 'Active'
+)
+select
+  sc.region,
+  t.term_code,
+  t.reporting_year,
+  count(distinct sc.id) as total_chapters,
+  count(distinct s.chapter_id) as started_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
+  round(
+    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
+      / nullif(count(distinct sc.id), 0),
+    2
+  ) as completion_rate_pct,
+  coalesce(sum(s.final_score), 0) as total_points,
+  coalesce(sum(s.max_score), 0) as total_possible_points,
+  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
+from scoped_chapters sc
+cross join public.v_reporting_terms t
+left join public.submissions s
+  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
+group by sc.region, t.term_code, t.reporting_year;
+
+create view public.v_national_rollup as
+with scoped_chapters as (
+  select id from public.chapters where status_code = 'Active'
+)
+select
+  t.term_code,
+  t.reporting_year,
+  count(distinct sc.id) as total_chapters,
+  count(distinct s.chapter_id) as started_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
+  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
+  round(
+    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
+      / nullif(count(distinct sc.id), 0),
+    2
+  ) as completion_rate_pct,
+  coalesce(sum(s.final_score), 0) as total_points,
+  coalesce(sum(s.max_score), 0) as total_possible_points,
+  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
+from scoped_chapters sc
+cross join public.v_reporting_terms t
+left join public.submissions s
+  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
+group by t.term_code, t.reporting_year;

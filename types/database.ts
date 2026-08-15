@@ -524,7 +524,14 @@ export interface Database {
           region: string;
           term_code: ReportTermCode;
           reporting_year: number;
-          submission_count: number;
+          total_chapters: number;
+          started_count: number;
+          submitted_count: number;
+          returned_count: number;
+          finalized_count: number;
+          pending_executive_count: number;
+          draft_count: number;
+          completion_rate_pct: number;
           total_points: number;
           total_possible_points: number;
           pct_score: number;
@@ -536,7 +543,14 @@ export interface Database {
           region: string;
           term_code: ReportTermCode;
           reporting_year: number;
-          submission_count: number;
+          total_chapters: number;
+          started_count: number;
+          submitted_count: number;
+          returned_count: number;
+          finalized_count: number;
+          pending_executive_count: number;
+          draft_count: number;
+          completion_rate_pct: number;
           total_points: number;
           total_possible_points: number;
           pct_score: number;
@@ -547,10 +561,24 @@ export interface Database {
         Row: {
           term_code: ReportTermCode;
           reporting_year: number;
-          submission_count: number;
+          total_chapters: number;
+          started_count: number;
+          submitted_count: number;
+          returned_count: number;
+          finalized_count: number;
+          pending_executive_count: number;
+          draft_count: number;
+          completion_rate_pct: number;
           total_points: number;
           total_possible_points: number;
           pct_score: number;
+        };
+        Relationships: [];
+      };
+      v_reporting_terms: {
+        Row: {
+          term_code: ReportTermCode;
+          reporting_year: number;
         };
         Relationships: [];
       };

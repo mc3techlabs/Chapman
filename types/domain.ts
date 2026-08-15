@@ -25,6 +25,8 @@ export type RegionRollupRow =
   Database["public"]["Views"]["v_region_rollup"]["Row"];
 export type NationalRollupRow =
   Database["public"]["Views"]["v_national_rollup"]["Row"];
+export type ReportingTermRow =
+  Database["public"]["Views"]["v_reporting_terms"]["Row"];
 
 /** A rubric item joined with the chapter's saved response, if any — the unit
  * the submission workspace and review queues render per row. */
