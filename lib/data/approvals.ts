@@ -204,10 +204,11 @@ export async function approveExecutive(
 /**
  * Reopens a finalized submission for editing. Sets workflow_status back to
  * "returned" (the existing isEditable check already treats that as
- * editable) rather than resetting district/regional/executive review
- * statuses directly here — resubmitting through submitReport already resets
- * all three to "pending", restarting the full parallel-approval cycle
- * naturally once the chapter actually resubmits.
+ * editable) and resets all three review statuses to "pending" up front —
+ * submitReport resets them again on resubmit regardless, but doing it here
+ * too means nothing in the interim (submission history views, an admin
+ * looking at the row) shows a stale "approved" on a review that's about to
+ * be redone.
  */
 export async function reopenSubmission(
   supabase: Client,
@@ -246,7 +247,12 @@ export async function reopenSubmission(
 
   return supabase
     .from("submissions")
-    .update({ workflow_status: "returned" })
+    .update({
+      workflow_status: "returned",
+      district_review_status: "pending",
+      regional_review_status: "pending",
+      executive_review_status: "pending",
+    })
     .eq("id", submissionId)
     .select()
     .single();

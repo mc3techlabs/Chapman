@@ -10,8 +10,10 @@ import { parseCsv } from "@/lib/csv";
 import { logAudit } from "@/lib/data/audit";
 import type { AppRoleCode } from "@/types/database";
 
-const VALID_ROLE_CODES: AppRoleCode[] = [
-  "chapter",
+// Reviewer-directory bulk import is for named DD/RVP/ED/admin accounts —
+// "chapter" is a different account model (shared login, no named person)
+// and isn't something this CSV should be able to assign.
+const REVIEWER_DIRECTORY_ROLE_CODES: AppRoleCode[] = [
   "district_director",
   "rvp",
   "executive_director",
@@ -208,7 +210,12 @@ export interface CsvImportResultState {
  * role_code, district, region, is_active). Invites new emails; updates
  * name/role/district/region in place for emails that already have a
  * profile, rather than erroring — the directory is meant to be re-uploaded
- * as it's corrected, not just used once.
+ * as it's corrected, not just used once. A row with is_active=false
+ * deactivates an existing profile (rather than being silently skipped) but
+ * is never used to invite a brand-new one. A row that would change an
+ * existing executive_director or admin profile's role is rejected — that's
+ * a deliberate, one-at-a-time change, not something a bulk re-upload with a
+ * typo'd role_code column should be able to do by accident.
  */
 export async function importReviewerDirectory(
   _prevState: CsvImportResultState,
@@ -243,6 +250,7 @@ export async function importReviewerDirectory(
 
   let invited = 0;
   let updated = 0;
+  let deactivated = 0;
   let skipped = 0;
   const errors: string[] = [];
 
@@ -260,22 +268,45 @@ export async function importReviewerDirectory(
       skipped++; // blank template row
       continue;
     }
+
+    const { data: existing } = await admin
+      .from("profiles")
+      .select("id, role_code")
+      .eq("email", email)
+      .maybeSingle();
+
     if (!isActive) {
-      skipped++;
+      if (!existing) {
+        skipped++; // nothing to deactivate, and we don't invite an already-inactive account
+        continue;
+      }
+      const { error: deactivateError } = await admin
+        .from("profiles")
+        .update({ is_active: false })
+        .eq("id", existing.id);
+      if (deactivateError) {
+        errors.push(`Row ${line} (${email}): ${deactivateError.message}`);
+        continue;
+      }
+      deactivated++;
       continue;
     }
-    if (!VALID_ROLE_CODES.includes(roleCode)) {
+
+    if (!REVIEWER_DIRECTORY_ROLE_CODES.includes(roleCode)) {
       errors.push(`Row ${line} (${email}): invalid role_code "${row["role_code"]}".`);
       continue;
     }
 
-    const { data: existing } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("email", email)
-      .maybeSingle();
-
     if (existing) {
+      if (
+        (existing.role_code === "executive_director" || existing.role_code === "admin") &&
+        existing.role_code !== roleCode
+      ) {
+        errors.push(
+          `Row ${line} (${email}): refusing to change this account's role from "${existing.role_code}" via bulk import — use the Supabase dashboard for that.`
+        );
+        continue;
+      }
       const { error: updateError } = await admin
         .from("profiles")
         .update({
@@ -283,6 +314,7 @@ export async function importReviewerDirectory(
           role_code: roleCode,
           district: district || null,
           region: region || null,
+          is_active: true,
         })
         .eq("id", existing.id);
       if (updateError) {
@@ -312,7 +344,7 @@ export async function importReviewerDirectory(
 
   revalidatePath("/admin/reviewers");
 
-  const summary = `Invited ${invited}, updated ${updated}${skipped > 0 ? `, skipped ${skipped} blank/inactive row(s)` : ""}.`;
+  const summary = `Invited ${invited}, updated ${updated}${deactivated > 0 ? `, deactivated ${deactivated}` : ""}${skipped > 0 ? `, skipped ${skipped} blank row(s)` : ""}.`;
   if (errors.length > 0) {
     const shown = errors.slice(0, 20);
     const more = errors.length > 20 ? `\n…and ${errors.length - 20} more.` : "";

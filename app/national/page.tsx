@@ -5,11 +5,11 @@ import {
   getRegionRollup,
   getReportingTerms,
 } from "@/lib/data/reporting";
-import { getCurrentReportingPeriod } from "@/lib/reportingPeriod";
+import { listAllChapters } from "@/lib/data/chapters";
+import { resolveRequestedPeriod } from "@/lib/reportingPeriod";
 import { KpiCard } from "@/components/KpiCard";
 import { TermYearFilter } from "@/components/TermYearFilter";
 import type { RegionRollupRow } from "@/types/domain";
-import type { ReportTermCode } from "@/types/database";
 
 export default async function NationalDashboardPage({
   searchParams,
@@ -20,22 +20,16 @@ export default async function NationalDashboardPage({
   const supabase = await createClient();
   const params = await searchParams;
 
-  let termCode: ReportTermCode;
-  let reportingYear: number;
-  if (params.period && params.period.includes(":")) {
-    const [t, y] = params.period.split(":");
-    termCode = t as ReportTermCode;
-    reportingYear = Number(y);
-  } else {
-    const current = await getCurrentReportingPeriod(supabase);
-    termCode = current.termCode;
-    reportingYear = current.reportingYear;
-  }
+  const { termCode, reportingYear } = await resolveRequestedPeriod(
+    supabase,
+    params.period
+  );
 
-  const [nationalRollup, regionRollup, terms] = await Promise.all([
+  const [nationalRollup, regionRollup, terms, chapters] = await Promise.all([
     getNationalRollup(supabase, { termCode, reportingYear }),
     getRegionRollup(supabase, { termCode, reportingYear }),
     getReportingTerms(supabase),
+    listAllChapters(supabase),
   ]);
 
   const current = nationalRollup[0];
@@ -54,7 +48,13 @@ export default async function NationalDashboardPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label="Active Chapters" value={current?.total_chapters ?? 0} />
+        <KpiCard
+          label="Active Chapters"
+          value={
+            current?.total_chapters ??
+            chapters.filter((c) => c.status_code === "Active").length
+          }
+        />
         <KpiCard
           label="Completion Rate"
           value={current ? `${current.completion_rate_pct}%` : "—"}

@@ -157,4 +157,9 @@ create policy approvals_insert_scope on public.approval_actions for insert with 
 );
 
 create policy audit_admin_only on public.audit_log for select using (public.is_admin() or public.is_exec());
-create policy audit_insert_authenticated on public.audit_log for insert with check (auth.role() = 'authenticated');
+-- Must match the actor doing the inserting (or be an admin) — not just any
+-- authenticated role — or any signed-in user could forge audit_log rows
+-- attributed to someone else. See 0009_audit_log_insert_scope.sql.
+create policy audit_insert_own_or_admin on public.audit_log for insert with check (
+  actor_profile_id = auth.uid() or public.is_admin()
+);

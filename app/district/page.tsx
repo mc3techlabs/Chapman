@@ -2,11 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/roles";
 import { getDistrictRollup, getReportingTerms } from "@/lib/data/reporting";
 import { listChaptersForDistrict } from "@/lib/data/chapters";
-import { getCurrentReportingPeriod } from "@/lib/reportingPeriod";
+import { resolveRequestedPeriod } from "@/lib/reportingPeriod";
 import { KpiCard } from "@/components/KpiCard";
 import { TermYearFilter } from "@/components/TermYearFilter";
 import type { DistrictRollupRow, Chapter } from "@/types/domain";
-import type { ReportTermCode } from "@/types/database";
 
 export default async function DistrictDashboardPage({
   searchParams,
@@ -19,17 +18,10 @@ export default async function DistrictDashboardPage({
 
   const district = profile.district ?? "";
 
-  let termCode: ReportTermCode;
-  let reportingYear: number;
-  if (params.period && params.period.includes(":")) {
-    const [t, y] = params.period.split(":");
-    termCode = t as ReportTermCode;
-    reportingYear = Number(y);
-  } else {
-    const current = await getCurrentReportingPeriod(supabase);
-    termCode = current.termCode;
-    reportingYear = current.reportingYear;
-  }
+  const { termCode, reportingYear } = await resolveRequestedPeriod(
+    supabase,
+    params.period
+  );
 
   const [rollup, chapters, terms] = await Promise.all([
     getDistrictRollup(supabase, { termCode, reportingYear }),
