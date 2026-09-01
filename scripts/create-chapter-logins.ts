@@ -16,9 +16,12 @@
  * gitignored — never commit this file, it contains real passwords).
  * --force recreates the login for a chapter that already has one linked.
  */
-import { randomBytes } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import {
+  generateChapterPassword,
+  chapterLoginEmail,
+} from "../lib/auth/chapterPassword";
 
 const url = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -50,21 +53,6 @@ if (!count && !keysArg) {
 }
 
 const supabase = createClient(url, serviceRoleKey);
-
-const PASSWORD_CHARS =
-  "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%";
-function generatePassword(length = 16): string {
-  const bytes = randomBytes(length);
-  return Array.from(bytes, (b) => PASSWORD_CHARS[b % PASSWORD_CHARS.length]).join(
-    ""
-  );
-}
-
-function loginEmailFor(chapterKey: string): string {
-  // chapman-accounts.internal is a synthetic, non-deliverable domain used
-  // only as a unique Auth identifier — these accounts never receive email.
-  return `chapter-${chapterKey}@chapman-accounts.internal`;
-}
 
 async function main() {
   let query = supabase
@@ -125,8 +113,8 @@ async function main() {
       }
     }
 
-    const email = loginEmailFor(chapter.chapter_key);
-    const password = generatePassword();
+    const email = chapterLoginEmail(chapter.chapter_key);
+    const password = generateChapterPassword();
 
     const { data: userData, error: userError } =
       await supabase.auth.admin.createUser({
