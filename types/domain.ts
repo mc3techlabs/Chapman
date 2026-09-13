@@ -63,6 +63,15 @@ export interface SubmissionWithChapter extends Submission {
   > | null;
 }
 
+/** Submission joined with chapter fields for the richer per-lane review queue
+ * (district/regional/executive status badges shown side by side). */
+export interface ReviewQueueSubmission extends Submission {
+  chapter: Pick<
+    Chapter,
+    "chapter_key" | "chapter_name" | "district" | "region" | "chapter_type_code"
+  > | null;
+}
+
 /** Reviewer assignment joined with chapter + reviewer display names, for the admin screen. */
 export interface AssignmentWithNames extends ReviewerAssignment {
   chapter: Pick<

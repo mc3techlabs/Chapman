@@ -535,6 +535,7 @@ export interface Database {
           total_points: number;
           total_possible_points: number;
           pct_score: number;
+          district_approved_count: number;
         };
         Relationships: [];
       };

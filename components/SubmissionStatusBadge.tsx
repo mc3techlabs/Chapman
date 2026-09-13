@@ -42,6 +42,13 @@ export function WorkflowStatusBadge({ status }: { status: WorkflowStatus }) {
   return <Badge className={WORKFLOW_STYLES[status]}>{WORKFLOW_LABEL[status]}</Badge>;
 }
 
-export function ReviewStatusBadge({ status }: { status: ReviewStatus }) {
-  return <Badge className={REVIEW_STYLES[status]}>{REVIEW_LABEL[status]}</Badge>;
+export function ReviewStatusBadge({
+  status,
+  prefix,
+}: {
+  status: ReviewStatus;
+  prefix?: string;
+}) {
+  const label = prefix ? `${prefix}: ${REVIEW_LABEL[status]}` : REVIEW_LABEL[status];
+  return <Badge className={REVIEW_STYLES[status]}>{label}</Badge>;
 }
