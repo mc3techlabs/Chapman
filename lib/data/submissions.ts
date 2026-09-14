@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, ReportTermCode } from "@/types/database";
-import type { Submission, SubmissionWithChapter } from "@/types/domain";
+import type {
+  Submission,
+  SubmissionWithChapter,
+  ReviewQueueSubmission,
+} from "@/types/domain";
 import { getActiveRubricVersion } from "./rubrics";
 import { getChapterById } from "./chapters";
 import { logAudit } from "./audit";
@@ -83,6 +87,33 @@ export async function listSubmissionsAwaitingReview(
     .eq("workflow_status", "submitted")
     .order("submitted_at");
   return (data ?? []) as unknown as SubmissionWithChapter[];
+}
+
+/**
+ * Every non-draft submission for a reviewer's chapters in one term/year —
+ * not just what's still pending their own sign-off, so a review screen can
+ * show District/Regional/Executive status side by side (a chapter this
+ * reviewer already approved should stay visible with its full status, not
+ * disappear from the queue).
+ */
+export async function listReviewQueueForTerm(
+  supabase: Client,
+  chapterIds: string[],
+  termCode: ReportTermCode,
+  reportingYear: number
+): Promise<ReviewQueueSubmission[]> {
+  if (chapterIds.length === 0) return [];
+  const { data } = await supabase
+    .from("submissions")
+    .select(
+      "*, chapter:chapters(chapter_key, chapter_name, district, region, chapter_type_code)"
+    )
+    .in("chapter_id", chapterIds)
+    .eq("term_code", termCode)
+    .eq("reporting_year", reportingYear)
+    .neq("workflow_status", "draft")
+    .order("submitted_at");
+  return (data ?? []) as unknown as ReviewQueueSubmission[];
 }
 
 export async function listSubmissionsAwaitingExecutiveApproval(
