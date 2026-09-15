@@ -128,13 +128,23 @@ export async function listSubmissionsAwaitingExecutiveApproval(
   return (data ?? []) as unknown as SubmissionWithChapter[];
 }
 
-/** Recomputes final_score/max_score from saved responses and active rubric items. */
+/**
+ * Recomputes final_score/max_score from saved responses and active rubric
+ * items. Pass rubricVersionId when the caller already has the submission
+ * row (e.g. submitReport, which fetches it for the dechartered check
+ * anyway) to skip re-fetching it here.
+ */
 export async function recalcSubmissionScore(
   supabase: Client,
-  submissionId: string
+  submissionId: string,
+  rubricVersionId?: string
 ) {
-  const submission = await getSubmissionById(supabase, submissionId);
-  if (!submission) return null;
+  let versionId = rubricVersionId;
+  if (!versionId) {
+    const submission = await getSubmissionById(supabase, submissionId);
+    if (!submission) return null;
+    versionId = submission.rubric_version_id;
+  }
 
   const [{ data: responses }, { data: items }] = await Promise.all([
     supabase
@@ -144,7 +154,7 @@ export async function recalcSubmissionScore(
     supabase
       .from("rubric_items")
       .select("default_point_value")
-      .eq("rubric_version_id", submission.rubric_version_id)
+      .eq("rubric_version_id", versionId)
       .eq("active", true),
   ]);
 
@@ -210,7 +220,7 @@ export async function submitReport(
     };
   }
 
-  await recalcSubmissionScore(supabase, submissionId);
+  await recalcSubmissionScore(supabase, submissionId, submission.rubric_version_id);
 
   const result = await supabase
     .from("submissions")
