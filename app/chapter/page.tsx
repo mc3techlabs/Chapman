@@ -59,12 +59,18 @@ export default async function ChapterDashboardPage() {
         />
       </div>
 
-      <Link
-        href="/chapter/submission"
-        className="w-fit rounded-lg bg-chapman-gold px-4 py-2 text-sm font-bold text-white transition hover:brightness-95"
-      >
-        Go to Submission Workspace
-      </Link>
+      {chapter.is_dechartered ? (
+        <div className="rounded-xl border-l-4 border-chapman-red bg-chapman-red-soft px-4 py-3 text-sm text-chapman-red">
+          This chapter is dechartered and can no longer submit reports.
+        </div>
+      ) : (
+        <Link
+          href="/chapter/submission"
+          className="w-fit rounded-lg bg-chapman-gold px-4 py-2 text-sm font-bold text-white transition hover:brightness-95"
+        >
+          Go to Submission Workspace
+        </Link>
+      )}
 
       <div>
         <h2 className="mb-3 text-sm font-extrabold uppercase tracking-wide text-chapman-muted">

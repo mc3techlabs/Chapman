@@ -197,6 +197,19 @@ export async function submitReport(
   submissionId: string,
   submittedByProfileId: string
 ) {
+  const submission = await getSubmissionById(supabase, submissionId);
+  if (!submission) {
+    return { data: null, error: new Error("Submission not found.") };
+  }
+
+  const chapter = await getChapterById(supabase, submission.chapter_id);
+  if (chapter?.is_dechartered) {
+    return {
+      data: null,
+      error: new Error("Dechartered chapters can't submit reports."),
+    };
+  }
+
   await recalcSubmissionScore(supabase, submissionId);
 
   const result = await supabase

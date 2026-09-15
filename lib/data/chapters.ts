@@ -32,6 +32,8 @@ export async function getChapterById(
   return data;
 }
 
+/** A district director's chapters, minus dechartered ones — they can't
+ * submit reports, so they have no business in a reviewer's working list. */
 export async function listChaptersForDistrict(
   supabase: Client,
   district: string
@@ -40,10 +42,12 @@ export async function listChaptersForDistrict(
     .from("chapters")
     .select("*")
     .eq("district", district)
+    .eq("is_dechartered", false)
     .order("chapter_name");
   return data ?? [];
 }
 
+/** An RVP's chapters, minus dechartered ones — see listChaptersForDistrict. */
 export async function listChaptersForRegion(
   supabase: Client,
   region: string
@@ -52,14 +56,32 @@ export async function listChaptersForRegion(
     .from("chapters")
     .select("*")
     .eq("region", region)
+    .eq("is_dechartered", false)
     .order("chapter_name");
   return data ?? [];
 }
 
+/** Every chapter, dechartered included — the admin master roster is the one
+ * place that needs to see and manage them (e.g. reactivating a chapter). */
 export async function listAllChapters(supabase: Client): Promise<Chapter[]> {
   const { data } = await supabase
     .from("chapters")
     .select("*")
+    .order("region")
+    .order("district")
+    .order("chapter_name");
+  return data ?? [];
+}
+
+/** Every chapter except dechartered ones — for pickers and lists where a
+ * dechartered chapter (which can't submit reports) shouldn't be selectable. */
+export async function listNonDecharteredChapters(
+  supabase: Client
+): Promise<Chapter[]> {
+  const { data } = await supabase
+    .from("chapters")
+    .select("*")
+    .eq("is_dechartered", false)
     .order("region")
     .order("district")
     .order("chapter_name");
