@@ -118,22 +118,29 @@ export async function createReviewerAccount(
     };
   }
 
-  // A district sits in exactly one region — if that region already has an
-  // active RVP, pair them in on the same chapters instead of leaving the
-  // RVP column empty until someone notices (a district's DD and its
-  // region's RVP being created in either order should both end up fully
-  // assigned, not just whichever one happened to be created second).
+  // A district is supposed to sit in exactly one region — if that region
+  // already has an active RVP, pair them in on the same chapters instead of
+  // leaving the RVP column empty until someone notices (a district's DD and
+  // its region's RVP being created in either order should both end up fully
+  // assigned, not just whichever one happened to be created second). Only
+  // trust that assumption when every chapter in this district actually
+  // agrees on the region — matchingChapters[0] alone, with no ORDER BY,
+  // would otherwise risk pairing on an arbitrary row's region and wrongly
+  // handing some of this DD's chapters to the wrong RVP.
   let pairedRvpId: string | null = null;
   if (role === "district_director" && matchingChapters && matchingChapters.length > 0) {
-    const districtRegion = matchingChapters[0].region;
-    const { data: existingRvps } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("role_code", "rvp")
-      .eq("region", districtRegion)
-      .eq("is_active", true)
-      .limit(1);
-    pairedRvpId = existingRvps?.[0]?.id ?? null;
+    const districtRegions = new Set(matchingChapters.map((c) => c.region));
+    if (districtRegions.size === 1) {
+      const [districtRegion] = districtRegions;
+      const { data: existingRvps } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("role_code", "rvp")
+        .eq("region", districtRegion)
+        .eq("is_active", true)
+        .limit(1);
+      pairedRvpId = existingRvps?.[0]?.id ?? null;
+    }
   }
 
   if (matchingChapters && matchingChapters.length > 0) {
@@ -297,6 +304,14 @@ export async function importReviewerDirectory(
       continue;
     }
 
+    // Only the field that applies to this role gets set — a stray value in
+    // the other column (e.g. a copy-paste leftover in the spreadsheet) must
+    // not silently widen this account's RLS scope to a region/district it
+    // has no business seeing, the same way createReviewerAccount already
+    // guards the single-account form.
+    const scopedDistrict = roleCode === "district_director" ? district || null : null;
+    const scopedRegion = roleCode === "rvp" ? region || null : null;
+
     if (existing) {
       if (
         (existing.role_code === "executive_director" || existing.role_code === "admin") &&
@@ -312,8 +327,8 @@ export async function importReviewerDirectory(
         .update({
           full_name: fullName,
           role_code: roleCode,
-          district: district || null,
-          region: region || null,
+          district: scopedDistrict,
+          region: scopedRegion,
           is_active: true,
         })
         .eq("id", existing.id);
@@ -333,10 +348,10 @@ export async function importReviewerDirectory(
       errors.push(`Row ${line} (${email}): ${error?.message ?? "invite failed"}`);
       continue;
     }
-    if (district || region) {
+    if (scopedDistrict || scopedRegion) {
       await admin
         .from("profiles")
-        .update({ district: district || null, region: region || null })
+        .update({ district: scopedDistrict, region: scopedRegion })
         .eq("id", data.user.id);
     }
     invited++;

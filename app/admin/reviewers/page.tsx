@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth/roles";
-import { listAllChapters } from "@/lib/data/chapters";
+import { listNonDecharteredChapters } from "@/lib/data/chapters";
 import { listAssignments } from "@/lib/data/reviewerAssignments";
 import { listProfilesByRole } from "@/lib/data/profiles";
 import {
@@ -18,7 +18,7 @@ export default async function AdminReviewersPage() {
   const supabase = await createClient();
 
   const [chapters, assignments, districtDirectors, rvps] = await Promise.all([
-    listAllChapters(supabase),
+    listNonDecharteredChapters(supabase),
     listAssignments(supabase),
     listProfilesByRole(supabase, "district_director"),
     listProfilesByRole(supabase, "rvp"),

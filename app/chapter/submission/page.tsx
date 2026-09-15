@@ -18,6 +18,14 @@ export default async function ChapterSubmissionPage() {
     return <p className="text-chapman-muted">No chapter is linked to this account yet.</p>;
   }
 
+  if (chapter.is_dechartered) {
+    return (
+      <div className="rounded-xl border-l-4 border-chapman-red bg-chapman-red-soft px-4 py-3 text-sm text-chapman-red">
+        This chapter is dechartered and can no longer submit reports.
+      </div>
+    );
+  }
+
   const period = await getCurrentReportingPeriod(supabase);
   const submission = await getOrCreateDraftSubmission(
     supabase,
