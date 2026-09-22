@@ -212,11 +212,18 @@ export async function submitReport(
     return { data: null, error: new Error("Submission not found.") };
   }
 
+  // The district/region/national rollup views only count chapters with
+  // status_code = 'Active' (scoped_chapters in 0003_reporting_views.sql) —
+  // a non-Active chapter's approved report would otherwise vanish from
+  // every completion stat while still moving through review normally, so
+  // submission is gated on the same status the rollups already assume.
   const chapter = await getChapterById(supabase, submission.chapter_id);
-  if (chapter?.is_dechartered) {
+  if (chapter && chapter.status_code !== "Active") {
     return {
       data: null,
-      error: new Error("Dechartered chapters can't submit reports."),
+      error: new Error(
+        `This chapter's status is ${chapter.status_code} and it can no longer submit reports.`
+      ),
     };
   }
 

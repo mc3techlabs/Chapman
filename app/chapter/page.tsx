@@ -59,9 +59,10 @@ export default async function ChapterDashboardPage() {
         />
       </div>
 
-      {chapter.is_dechartered ? (
+      {chapter.status_code !== "Active" ? (
         <div className="rounded-xl border-l-4 border-chapman-red bg-chapman-red-soft px-4 py-3 text-sm text-chapman-red">
-          This chapter is dechartered and can no longer submit reports.
+          This chapter&rsquo;s status is {chapter.status_code} and it can no
+          longer submit reports.
         </div>
       ) : (
         <Link
