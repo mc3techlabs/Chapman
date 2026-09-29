@@ -128,13 +128,23 @@ export async function listSubmissionsAwaitingExecutiveApproval(
   return (data ?? []) as unknown as SubmissionWithChapter[];
 }
 
-/** Recomputes final_score/max_score from saved responses and active rubric items. */
+/**
+ * Recomputes final_score/max_score from saved responses and active rubric
+ * items. Pass rubricVersionId when the caller already has the submission
+ * row (e.g. submitReport, which fetches it for the dechartered check
+ * anyway) to skip re-fetching it here.
+ */
 export async function recalcSubmissionScore(
   supabase: Client,
-  submissionId: string
+  submissionId: string,
+  rubricVersionId?: string
 ) {
-  const submission = await getSubmissionById(supabase, submissionId);
-  if (!submission) return null;
+  let versionId = rubricVersionId;
+  if (!versionId) {
+    const submission = await getSubmissionById(supabase, submissionId);
+    if (!submission) return null;
+    versionId = submission.rubric_version_id;
+  }
 
   const [{ data: responses }, { data: items }] = await Promise.all([
     supabase
@@ -144,7 +154,7 @@ export async function recalcSubmissionScore(
     supabase
       .from("rubric_items")
       .select("default_point_value")
-      .eq("rubric_version_id", submission.rubric_version_id)
+      .eq("rubric_version_id", versionId)
       .eq("active", true),
   ]);
 
@@ -197,7 +207,27 @@ export async function submitReport(
   submissionId: string,
   submittedByProfileId: string
 ) {
-  await recalcSubmissionScore(supabase, submissionId);
+  const submission = await getSubmissionById(supabase, submissionId);
+  if (!submission) {
+    return { data: null, error: new Error("Submission not found.") };
+  }
+
+  // The district/region/national rollup views only count chapters with
+  // status_code = 'Active' (scoped_chapters in 0003_reporting_views.sql) —
+  // a non-Active chapter's approved report would otherwise vanish from
+  // every completion stat while still moving through review normally, so
+  // submission is gated on the same status the rollups already assume.
+  const chapter = await getChapterById(supabase, submission.chapter_id);
+  if (chapter && chapter.status_code !== "Active") {
+    return {
+      data: null,
+      error: new Error(
+        `This chapter's status is ${chapter.status_code} and it can no longer submit reports.`
+      ),
+    };
+  }
+
+  await recalcSubmissionScore(supabase, submissionId, submission.rubric_version_id);
 
   const result = await supabase
     .from("submissions")

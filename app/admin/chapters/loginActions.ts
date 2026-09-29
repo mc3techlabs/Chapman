@@ -50,6 +50,7 @@ export async function createAllChapterLogins(
   const { data: chapters, error: chaptersError } = await admin
     .from("chapters")
     .select("id, chapter_key, chapter_name")
+    .eq("is_dechartered", false)
     .order("chapter_name");
   if (chaptersError) {
     return {

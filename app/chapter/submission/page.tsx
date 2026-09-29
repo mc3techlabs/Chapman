@@ -18,6 +18,15 @@ export default async function ChapterSubmissionPage() {
     return <p className="text-chapman-muted">No chapter is linked to this account yet.</p>;
   }
 
+  if (chapter.status_code !== "Active") {
+    return (
+      <div className="rounded-xl border-l-4 border-chapman-red bg-chapman-red-soft px-4 py-3 text-sm text-chapman-red">
+        This chapter&rsquo;s status is {chapter.status_code} and it can no
+        longer submit reports.
+      </div>
+    );
+  }
+
   const period = await getCurrentReportingPeriod(supabase);
   const submission = await getOrCreateDraftSubmission(
     supabase,

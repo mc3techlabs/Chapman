@@ -10,13 +10,16 @@ export interface ChapterLoginStatus {
   login_email: string | null;
 }
 
-/** Every chapter with its shared-login email, if one has been created. */
+/** Every non-dechartered chapter with its shared-login email, if one has
+ * been created — a dechartered chapter can't submit reports, so it has no
+ * business getting a login here. */
 export async function listChapterLoginStatus(
   supabase: Client
 ): Promise<ChapterLoginStatus[]> {
   const { data: chapters } = await supabase
     .from("chapters")
     .select("id, chapter_key, chapter_name")
+    .eq("is_dechartered", false)
     .order("chapter_name");
 
   const { data: links } = await supabase
