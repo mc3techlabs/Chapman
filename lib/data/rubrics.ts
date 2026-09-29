@@ -6,6 +6,7 @@ import type {
   RubricSubsectionWithItems,
   RubricItemWithResponse,
   SubmissionItemResponse,
+  RubricItem,
 } from "@/types/domain";
 
 type Client = SupabaseClient<Database>;
@@ -105,4 +106,44 @@ export async function getRubricTree(
   }));
 
   return { version, sections: sectionTree };
+}
+
+/**
+ * Resolves one rubric item by its human-facing location (section code ->
+ * subsection code -> criterion code) rather than by id — for integrations
+ * that need to target a specific, known criterion (e.g. "1.1c — General
+ * Fees") without hardcoding a rubric_items UUID. criterion_code alone
+ * isn't unique across a rubric version (a few codes like "1.8" repeat in
+ * different subsections), so this walks section -> subsection -> item.
+ */
+export async function getRubricItemByCode(
+  supabase: Client,
+  rubricVersionId: string,
+  sectionCode: string,
+  subsectionCode: string,
+  criterionCode: string
+): Promise<RubricItem | null> {
+  const { data: section } = await supabase
+    .from("rubric_sections")
+    .select("id")
+    .eq("rubric_version_id", rubricVersionId)
+    .eq("section_code", sectionCode)
+    .maybeSingle();
+  if (!section) return null;
+
+  const { data: subsection } = await supabase
+    .from("rubric_subsections")
+    .select("id")
+    .eq("rubric_section_id", section.id)
+    .eq("subsection_code", subsectionCode)
+    .maybeSingle();
+  if (!subsection) return null;
+
+  const { data: item } = await supabase
+    .from("rubric_items")
+    .select("*")
+    .eq("rubric_subsection_id", subsection.id)
+    .eq("criterion_code", criterionCode)
+    .maybeSingle();
+  return item;
 }
