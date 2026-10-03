@@ -1,0 +1,8 @@
+rubric_version_code,section_code,section_name,display_order,active
+alumni_v1,operational_excellence,Operational Excellence,1,true
+alumni_v1,national_programs_special_initiatives,National Programs & Special Initiatives,2,true
+alumni_v1,community_engagement,Community Engagement,3,true
+collegiate_v1,operational_excellence,Operational Excellence,1,true
+collegiate_v1,national_programs_special_initiatives,National Programs & Special Initiatives,2,true
+collegiate_v1,campus_community_engagement,Campus & Community Engagement,3,true
+collegiate_v1,academic_excellence,Academic Excellence,4,true

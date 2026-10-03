@@ -1,0 +1,3 @@
+version_code,version_name,chapter_type_code,reporting_year,is_active
+collegiate_v1,Collegiate Chapman Rubric v1,collegiate,,true
+alumni_v1,Alumni Chapman Rubric v1,alumni,,true

@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# Chapman Reporting Portal — local environment variables
+# Copy to `.dev.vars` for local dev, and set the same names as secrets in
+# production (Cloudflare Pages → Settings → Environment variables → Encrypted).
+# NEVER commit the real file.
+# ---------------------------------------------------------------------------
+
+# Supabase project URL (Project Settings → API → Project URL)
+SUPABASE_URL=
+
+# Public anon key — safe to expose to the browser (RLS enforces access)
+SUPABASE_ANON_KEY=
+
+# Server-only. Bypasses RLS. Used for: provisioning chapter/reviewer logins,
+# importing chapters, and uploading documents to Storage. NEVER expose to the browser.
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Storage bucket for uploaded documents (tax documents, special event checklists).
+# Create it in Supabase → Storage. Private bucket recommended.
+DOCUMENTS_BUCKET=chapman-documents
+
+# Optional: force "demo" (in-memory) mode for a credential-free local preview.
+# Leave unset in production. Set to "1" to preview the full UI with seeded data.
+DEMO_MODE=

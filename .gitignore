@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.wrangler/
+
+# Local secrets — NEVER commit (Supabase keys live here)
+.env
+.env.local
+.dev.vars
+
+# Logs / pids
+logs/
+*.log
+pids
+*.pid
+
+# Backups
+*.tar.gz
+*.zip
+*.bak

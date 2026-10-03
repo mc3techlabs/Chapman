@@ -1,0 +1,10 @@
+code,label,sort_order,is_active
+Active,Active,1,true
+Inactive,Inactive,2,true
+Suspended,Suspended,3,true
+Dechartered,Dechartered,4,true
+Cease and Desist,Cease and Desist,5,true
+Provisional/Alumni,Provisional/Alumni,6,true
+Provisional/College,Provisional/College,7,true
+Probation,Probation,8,true
+Dormant,Dormant,9,true
