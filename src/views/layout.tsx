@@ -91,6 +91,20 @@ export const Sidebar: FC<{
   current: string;
 }> = ({ session, current }) => {
   const groups = navFor(session.role);
+
+  // Highlight only the MOST SPECIFIC match for the current path. Matching by
+  // bare prefix would light up a section root ("/admin") on every child route
+  // ("/admin/access", "/admin/chapters", …) at the same time as the child.
+  // Longest-href-wins also gives free nested-route support (e.g. a review
+  // detail page at /district/review/:id keeps "Review Queue" active).
+  const isMatch = (href: string) => current === href || current.startsWith(href + "/");
+  let activeHref = "";
+  for (const g of groups) {
+    for (const it of g.items) {
+      if (isMatch(it.href) && it.href.length > activeHref.length) activeHref = it.href;
+    }
+  }
+
   return (
     <aside class="sidebar">
       <div class="brand">
