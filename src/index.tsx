@@ -12,6 +12,8 @@ import { reviewRoutes } from "./routes/review";
 import { adminRoutes } from "./routes/admin";
 import { rollupRoutes } from "./routes/rollups";
 import { documentsRoutes } from "./routes/documents";
+import { accessRoutes } from "./routes/access";
+import { authRoutes } from "./routes/auth";
 
 export type Bindings = AppEnv;
 export interface Variables {
@@ -116,7 +118,8 @@ app.use("*", async (c, next) => {
     path === "/login" ||
     path === "/health" ||
     path.startsWith("/static/") ||
-    path.startsWith("/demo/")
+    path.startsWith("/demo/") ||
+    path.startsWith("/auth/")
   ) {
     return next();
   }
@@ -146,6 +149,8 @@ app.route("/", reviewRoutes);
 app.route("/", rollupRoutes);
 app.route("/", documentsRoutes);
 app.route("/", adminRoutes);
+app.route("/", accessRoutes);
+app.route("/", authRoutes);
 
 app.notFound((c) => c.text("Not found", 404));
 

@@ -10,6 +10,7 @@ import type {
   ItemResponse,
   ListChaptersParams,
   NationalRollup,
+  OrgUnits,
   Profile,
   RegionRollup,
   ReportingPeriod,
@@ -583,6 +584,19 @@ export function createSupabaseStore(
         .eq("role_code", role)
         .order("full_name");
       return (data ?? []) as Profile[];
+    },
+
+    async listOrgUnits(): Promise<OrgUnits> {
+      // regions/districts are admin-write, authenticated-read reference tables;
+      // `client` carries the caller's token so this is a normal user read.
+      const [regions, districts] = await Promise.all([
+        client.from("regions").select("code, name, sort_order").order("sort_order"),
+        client.from("districts").select("code, name, region_code").order("name"),
+      ]);
+      return {
+        regions: (regions.data ?? []) as any,
+        districts: (districts.data ?? []) as any,
+      };
     },
   };
 }

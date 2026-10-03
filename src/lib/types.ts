@@ -61,6 +61,12 @@ export interface District {
   region_code: string;
 }
 
+/** Regions + districts together — the admin pickers (reviewer scope, filters). */
+export interface OrgUnits {
+  regions: Region[];
+  districts: District[];
+}
+
 export interface DocumentType {
   code: string;
   label: string;

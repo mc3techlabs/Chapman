@@ -9,6 +9,7 @@ import type {
   ItemResponse,
   ListChaptersParams,
   NationalRollup,
+  OrgUnits,
   Profile,
   RegionRollup,
   ReportingPeriod,
@@ -133,6 +134,8 @@ export interface Store {
 
   // -- Admin ---------------------------------------------------------------
   listProfilesByRole(role: string): Promise<Profile[]>;
+  /** Regions + districts, for admin pickers (reviewer scope, roster filters). */
+  listOrgUnits(): Promise<OrgUnits>;
 }
 
 export type {

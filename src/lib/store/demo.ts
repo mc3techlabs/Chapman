@@ -10,6 +10,7 @@ import type {
   ItemResponse,
   ListChaptersParams,
   NationalRollup,
+  OrgUnits,
   Profile,
   Region,
   RegionRollup,
@@ -659,6 +660,13 @@ export function createDemoStore(cookie: string | undefined): Store {
           is_active: true,
         },
       ] as Profile[];
+    },
+
+    async listOrgUnits(): Promise<OrgUnits> {
+      return {
+        regions: DEMO_REGIONS,
+        districts: DEMO_DISTRICTS as any,
+      };
     },
   };
 }
