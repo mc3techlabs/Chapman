@@ -128,13 +128,23 @@ export async function provisionChapterLogin(
     if (/already|exists|registered|duplicate/i.test(msg)) {
       // Already provisioned — make sure the chapter link exists, then report.
       const existing = await findAuthUserByEmail(admin, email);
-      if (existing) await linkChapter(admin, chapter.id, existing.id);
+      if (existing) {
+        try {
+          await linkChapter(admin, chapter.id, existing.id);
+        } catch (linkError) {
+          return { ...base, status: "error", message: (linkError as Error).message };
+        }
+      }
       return { ...base, status: "exists", message: "Login already exists." };
     }
     return { ...base, status: "error", message: msg };
   }
 
-  await linkChapter(admin, chapter.id, data.user.id);
+  try {
+    await linkChapter(admin, chapter.id, data.user.id);
+  } catch (linkError) {
+    return { ...base, status: "error", message: (linkError as Error).message };
+  }
   return { ...base, status: "created", password };
 }
 
@@ -172,18 +182,28 @@ export async function resetChapterLogin(
   });
   if (error) return { ...base, status: "error", message: error.message };
 
-  await linkChapter(admin, chapter.id, existing.id);
+  try {
+    await linkChapter(admin, chapter.id, existing.id);
+  } catch (linkError) {
+    return { ...base, status: "error", message: (linkError as Error).message };
+  }
   return { ...base, status: "created", password, message: "Password reset." };
 }
 
-/** Upserts the shared chapter↔login link (idempotent). */
+/**
+ * Upserts the shared chapter<->login link (idempotent). Throws on failure
+ * (e.g. the uq_chapter_user_primary constraint when a stale link is still
+ * active for this chapter) so a caller's status: "created" response can't
+ * claim success while the chapter is actually left unlinked.
+ */
 async function linkChapter(admin: SupabaseClient, chapterId: string, profileId: string) {
-  await admin
+  const { error } = await admin
     .from("chapter_user_links")
     .upsert(
       { chapter_id: chapterId, profile_id: profileId, is_primary: true, is_active: true },
       { onConflict: "chapter_id,profile_id" }
     );
+  if (error) throw new Error(`Failed to link chapter: ${error.message}`);
 }
 
 /** Bulk chapter provisioning with bounded concurrency. Skips existing logins. */
@@ -201,9 +221,23 @@ export async function provisionChapterLogins(
   return pool(chapters, 8, async (ch) => {
     const email = chapterEmail(ch.chapter_key).toLowerCase();
     if (skip && existingEmails.has(email)) {
-      // Ensure the link exists for a pre-existing account.
+      // Ensure the link exists for a pre-existing account. A failure here
+      // (e.g. a conflicting stale link already active for this chapter) must
+      // not reject the whole batch - pool() doesn't catch per-item errors.
       const existing = await findAuthUserByEmail(admin, email);
-      if (existing) await linkChapter(admin, ch.id, existing.id);
+      if (existing) {
+        try {
+          await linkChapter(admin, ch.id, existing.id);
+        } catch (linkError) {
+          return {
+            chapter_key: ch.chapter_key,
+            chapter_name: ch.chapter_name,
+            email,
+            status: "error" as const,
+            message: (linkError as Error).message,
+          };
+        }
+      }
       return {
         chapter_key: ch.chapter_key,
         chapter_name: ch.chapter_name,
