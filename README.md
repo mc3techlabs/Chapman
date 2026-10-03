@@ -24,10 +24,11 @@ existing Supabase project by setting environment variables — no code changes r
 | Application code | ✅ Complete (demo-previewable end to end) |
 | Typecheck (`tsc --noEmit`) | ✅ Clean (0 errors) |
 | Production build (`vite build`) | ✅ Passing (`dist/_worker.js`, ~430 kB) |
-| Schema + RLS + rollup views | ✅ Written (`supabase/migrations/`) |
-| Seed data | ✅ Real roster 879 chapters, 300 rubric items (156 collegiate + 144 alumni) |
-| Attached to your Supabase DB | ⏳ Awaiting credentials |
-| Deployed to Cloudflare | ⏳ Awaiting deploy-path choice |
+| Schema + RLS + rollup views | ✅ Written (`supabase/migrations/`) + `supabase/bootstrap.sql` |
+| Seed data | ✅ 872 chapters, 300 rubric items (156 collegiate + 144 alumni), 7 document types |
+| SQL validated | ✅ `bootstrap.sql` run twice on Postgres 17 — 0 errors, idempotent |
+| Deployed to Cloudflare | ✅ **Live** — https://chapman-portal.pages.dev (demo mode) |
+| Attached to your Supabase DB | ⏳ Run `bootstrap.sql`, then set secrets |
 
 ---
 
@@ -241,7 +242,26 @@ Full walkthrough: [`supabase/SETUP.md`](supabase/SETUP.md). Short version:
 
 ## 8. Deployment
 
-- **Platform**: Cloudflare Pages
-- **Status**: ⏳ Not deployed yet (app runs locally in demo mode)
+- **Platform**: Cloudflare Pages (deployed to the owner's own Cloudflare account via a user API token)
+- **Production URL**: **https://chapman-portal.pages.dev**
+- **Project name**: `chapman-portal`
+- **Status**: ✅ Live — currently in **demo mode** (no Supabase secrets set yet)
 - **Build output**: `dist/` (`_worker.js` + `static/`)
 - **Last updated**: 2026-10-03
+
+### Going live (Supabase attached)
+
+1. Run `supabase/bootstrap.sql` in the Supabase SQL Editor (see §6).
+2. Set the four secrets on the Pages project:
+
+   ```bash
+   echo "https://kqmudztvvvnldttklstc.supabase.co" | npx wrangler pages secret put SUPABASE_URL --project-name chapman-portal
+   echo "<anon-key>"      | npx wrangler pages secret put SUPABASE_ANON_KEY --project-name chapman-portal
+   echo "<service-role>"  | npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name chapman-portal
+   echo "chapman-documents" | npx wrangler pages secret put DOCUMENTS_BUCKET --project-name chapman-portal
+   ```
+
+3. Create the first `admin` user in Supabase Auth (§6), then log in at
+   **https://chapman-portal.pages.dev/login**.
+
+Redeploy any time with `npm run build && npx wrangler pages deploy dist --project-name chapman-portal`.

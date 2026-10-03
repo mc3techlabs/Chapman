@@ -10,6 +10,7 @@
     "preview": "wrangler pages dev dist",
     "deploy": "npm run build && wrangler pages deploy dist",
     "gen:seed": "tsx scripts/build-demo-seed.ts",
+    "gen:bootstrap": "node scripts/gen-bootstrap.mjs",
     "db:migrate": "tsx scripts/apply-migrations.ts",
     "db:seed": "tsx scripts/load-seed.ts",
     "typecheck": "tsc --noEmit",
