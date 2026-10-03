@@ -1,0 +1,8 @@
+code,label,category,description,allowed_extensions,max_size_mb,applies_to_types,is_active,display_order
+annual_irs_990,IRS Form 990 (or 990-EZ / 990-N),tax,"Annual information return filed with the IRS by chapters with a foundation or 501(c)(3) status. Upload the accepted filing.",pdf,25,,true,10
+chapter_audit,Chapter Financial Audit,tax,"Most recent chapter audit. Per Chapman criteria 1.6, the audit may not be older than 120 days past the end of the fraternal year.",pdf,25,,true,20
+chapter_tax_return,Chapter Tax Return / Filing Confirmation,tax,"Filed chapter tax return or the e-file acceptance confirmation.",pdf,25,,true,30
+foundation_990,Chapter Foundation 501(c)(3) Filing,tax,"Separate 990 series filing for a chapter-affiliated foundation, where one exists.",pdf,25,,true,40
+grip_submission,GRIP Submission,other,"General Records & Information Platform (GRIP) submission evidence.",pdf,csv,xlsx,25,,true,50
+special_event_checklist,Special Event Checklist,special_event,"Completed special event planning and compliance checklist (format TBD — framework placeholder).",pdf,docx,xlsx,csv,25,,true,60
+special_event_after_action,Special Event After-Action Report,special_event,"Post-event report submitted after a special event (format TBD — framework placeholder).",pdf,docx,25,,true,70

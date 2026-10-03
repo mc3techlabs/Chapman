@@ -1,26 +1,37 @@
--- Chapman Reporting Portal — reporting views
+-- ===========================================================================
+-- Reporting views for the district / regional / national rollups.
 --
--- All views here are security_invoker = on: without it, a view executes
--- with its owner's privileges for RLS purposes (the owner is `postgres` in
--- Supabase, which bypasses RLS), so any authenticated role — including a
--- chapter's shared login — could otherwise read every district's/region's
--- data straight off the view, ignoring the chapters/submissions RLS scoping
--- in 0002_rls_policies.sql. With it on, the view re-evaluates as the
--- querying role, so district directors/RVPs/chapters only ever see their
--- own scope, and admin/exec (who already bypass RLS on the base tables)
--- see everything, same as before. See 0008 for the equivalent ALTER on an
--- already-migrated database.
+-- All views are security_invoker = on so they run with the *querying* role's
+-- privileges: a district director querying a rollup only aggregates rows RLS
+-- already lets them see. Without this, the view would evaluate as its owner
+-- and leak every scope.
+--
+-- The rollups are built LEFT JOIN from the active chapter roster (cross
+-- joined against every term/year that has ever been reported or opened), NOT
+-- inner-joined from submissions — a chapter that hasn't started still has to
+-- count in the denominator, or completion % is meaningless (3 finalized out
+-- of the only 3 touched would read as 100% while 800 sit at zero).
+-- ===========================================================================
+
+-- Distinct term/year pairs for dashboard filters.
+create or replace view public.v_reporting_terms
+  with (security_invoker = on) as
+select term_code, reporting_year from public.submissions where reporting_year is not null
+union
+select term_code, reporting_year from public.reporting_windows where reporting_year is not null;
+
+-- Per-submission rollup row (one chapter / term / year).
 create or replace view public.v_submission_rollup
   with (security_invoker = on) as
 select
-  c.id as chapter_id,
+  c.id            as chapter_id,
   c.chapter_key,
   c.chapter_name,
   c.chapter_type_code,
   c.district,
   c.region,
   c.status_code,
-  s.id as submission_id,
+  s.id            as submission_id,
   s.term_code,
   s.reporting_year,
   s.workflow_status,
@@ -29,115 +40,101 @@ select
   s.executive_review_status,
   s.final_score,
   s.max_score,
-  case when s.max_score > 0 then round((s.final_score::numeric / s.max_score::numeric) * 100, 2) else 0 end as pct_score
+  case when s.max_score > 0
+       then round((s.final_score::numeric / s.max_score::numeric) * 100, 2)
+       else 0 end as pct_score
 from public.submissions s
 join public.chapters c on c.id = s.chapter_id;
 
--- district/region/national rollups are built LEFT JOIN from the active
--- chapter roster (cross joined against every term/year that's ever been
--- reported or opened), not INNER JOIN from submissions — a chapter that
--- hasn't started its report yet still has to count in the denominator, or
--- completion_rate_pct would be meaningless (3 finalized out of 3 that have
--- even been touched reads as "100%" when 57 others haven't started).
-create or replace view public.v_reporting_terms
+-- Active-chapter roster x every reported/opened term — the denominator spine.
+create or replace view public.v_roster_spine
   with (security_invoker = on) as
-select term_code, reporting_year from public.submissions where reporting_year is not null
-union
-select term_code, reporting_year from public.reporting_windows where reporting_year is not null;
+select
+  c.id as chapter_id, c.chapter_key, c.chapter_name, c.chapter_type_code,
+  c.district, c.region,
+  p.term_code, p.reporting_year
+from public.chapters c
+cross join (
+  select term_code, reporting_year from public.v_reporting_terms where reporting_year is not null
+) p
+where c.status_code = 'Active';
 
--- CREATE OR REPLACE VIEW can't rename/restructure columns, only the older
--- definitions of these had different columns (submission_count, no
--- completion_rate_pct, etc.) — drop first so the new shape can apply.
 drop view if exists public.v_district_rollup;
-drop view if exists public.v_region_rollup;
-drop view if exists public.v_national_rollup;
-
 create view public.v_district_rollup
   with (security_invoker = on) as
-with scoped_chapters as (
-  select id, district, region from public.chapters where status_code = 'Active'
-)
 select
-  sc.district,
-  sc.region,
-  t.term_code,
-  t.reporting_year,
-  count(distinct sc.id) as total_chapters,
-  count(distinct s.chapter_id) as started_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
-  round(
-    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
-      / nullif(count(distinct sc.id), 0),
-    2
-  ) as completion_rate_pct,
-  coalesce(sum(s.final_score), 0) as total_points,
-  coalesce(sum(s.max_score), 0) as total_possible_points,
-  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from scoped_chapters sc
-cross join public.v_reporting_terms t
+  sp.district,
+  sp.term_code,
+  sp.reporting_year,
+  count(*)                                              as chapters_total,
+  count(s.id)                                           as chapters_started,
+  count(*) filter (where s.workflow_status = 'finalized') as chapters_finalized,
+  count(*) filter (where s.district_review_status = 'approved') as district_approved,
+  coalesce(sum(s.final_score), 0)                       as points_earned,
+  coalesce(sum(s.max_score), 0)                         as points_possible,
+  case when coalesce(sum(s.max_score), 0) > 0
+       then round((sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100, 2)
+       else 0 end                                       as avg_score_pct,
+  case when count(*) > 0
+       then round((count(s.id)::numeric / count(*)::numeric) * 100, 2)
+       else 0 end                                       as completion_rate_pct
+from public.v_roster_spine sp
 left join public.submissions s
-  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
-group by sc.district, sc.region, t.term_code, t.reporting_year;
+  on s.chapter_id = sp.chapter_id
+ and s.term_code = sp.term_code
+ and s.reporting_year = sp.reporting_year
+group by sp.district, sp.term_code, sp.reporting_year;
 
+drop view if exists public.v_region_rollup;
 create view public.v_region_rollup
   with (security_invoker = on) as
-with scoped_chapters as (
-  select id, region from public.chapters where status_code = 'Active'
-)
 select
-  sc.region,
-  t.term_code,
-  t.reporting_year,
-  count(distinct sc.id) as total_chapters,
-  count(distinct s.chapter_id) as started_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
-  round(
-    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
-      / nullif(count(distinct sc.id), 0),
-    2
-  ) as completion_rate_pct,
-  coalesce(sum(s.final_score), 0) as total_points,
-  coalesce(sum(s.max_score), 0) as total_possible_points,
-  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from scoped_chapters sc
-cross join public.v_reporting_terms t
+  sp.region,
+  sp.term_code,
+  sp.reporting_year,
+  count(*)                                              as chapters_total,
+  count(s.id)                                           as chapters_started,
+  count(*) filter (where s.workflow_status = 'finalized') as chapters_finalized,
+  count(*) filter (where s.regional_review_status = 'approved') as region_approved,
+  count(distinct sp.district)                           as districts_total,
+  coalesce(sum(s.final_score), 0)                       as points_earned,
+  coalesce(sum(s.max_score), 0)                         as points_possible,
+  case when coalesce(sum(s.max_score), 0) > 0
+       then round((sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100, 2)
+       else 0 end                                       as avg_score_pct,
+  case when count(*) > 0
+       then round((count(s.id)::numeric / count(*)::numeric) * 100, 2)
+       else 0 end                                       as completion_rate_pct
+from public.v_roster_spine sp
 left join public.submissions s
-  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
-group by sc.region, t.term_code, t.reporting_year;
+  on s.chapter_id = sp.chapter_id
+ and s.term_code = sp.term_code
+ and s.reporting_year = sp.reporting_year
+group by sp.region, sp.term_code, sp.reporting_year;
 
+drop view if exists public.v_national_rollup;
 create view public.v_national_rollup
   with (security_invoker = on) as
-with scoped_chapters as (
-  select id from public.chapters where status_code = 'Active'
-)
 select
-  t.term_code,
-  t.reporting_year,
-  count(distinct sc.id) as total_chapters,
-  count(distinct s.chapter_id) as started_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized')) as submitted_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'returned') as returned_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'finalized') as finalized_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'pending_executive') as pending_executive_count,
-  count(distinct s.chapter_id) filter (where s.workflow_status = 'draft') as draft_count,
-  round(
-    100.0 * count(distinct s.chapter_id) filter (where s.workflow_status in ('submitted','pending_executive','finalized'))
-      / nullif(count(distinct sc.id), 0),
-    2
-  ) as completion_rate_pct,
-  coalesce(sum(s.final_score), 0) as total_points,
-  coalesce(sum(s.max_score), 0) as total_possible_points,
-  round(case when sum(s.max_score) > 0 then (sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100 else 0 end, 2) as pct_score
-from scoped_chapters sc
-cross join public.v_reporting_terms t
+  sp.term_code,
+  sp.reporting_year,
+  count(*)                                              as chapters_total,
+  count(s.id)                                           as chapters_started,
+  count(*) filter (where s.workflow_status = 'finalized') as chapters_finalized,
+  count(*) filter (where s.workflow_status = 'pending_executive') as pending_executive,
+  count(distinct sp.region)                             as regions_total,
+  count(distinct sp.district)                           as districts_total,
+  coalesce(sum(s.final_score), 0)                       as points_earned,
+  coalesce(sum(s.max_score), 0)                         as points_possible,
+  case when coalesce(sum(s.max_score), 0) > 0
+       then round((sum(s.final_score)::numeric / sum(s.max_score)::numeric) * 100, 2)
+       else 0 end                                       as avg_score_pct,
+  case when count(*) > 0
+       then round((count(s.id)::numeric / count(*)::numeric) * 100, 2)
+       else 0 end                                       as completion_rate_pct
+from public.v_roster_spine sp
 left join public.submissions s
-  on s.chapter_id = sc.id and s.term_code = t.term_code and s.reporting_year = t.reporting_year
-group by t.term_code, t.reporting_year;
+  on s.chapter_id = sp.chapter_id
+ and s.term_code = sp.term_code
+ and s.reporting_year = sp.reporting_year
+group by sp.term_code, sp.reporting_year;

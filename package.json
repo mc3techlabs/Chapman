@@ -1,37 +1,35 @@
 {
-  "name": "chapman-reporting-portal",
+  "name": "chapman-portal",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint",
-    "db:migrate": "tsx scripts/run-migrations.ts",
-    "db:seed": "tsx scripts/import-seed.ts",
-    "invite:user": "tsx scripts/invite-user.ts",
-    "window:create": "tsx scripts/create-reporting-window.ts",
-    "chapters:create-logins": "tsx scripts/create-chapter-logins.ts"
+    "dev": "vite",
+    "dev:sandbox": "wrangler pages dev dist --ip 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "preview": "wrangler pages dev dist",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "gen:seed": "tsx scripts/build-demo-seed.ts",
+    "gen:bootstrap": "node scripts/gen-bootstrap.mjs",
+    "db:migrate": "tsx scripts/apply-migrations.ts",
+    "db:seed": "tsx scripts/load-seed.ts",
+    "typecheck": "tsc --noEmit",
+    "clean-port": "fuser -k 3000/tcp 2>/dev/null || true",
+    "test": "curl http://localhost:3000"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.1",
-    "next": "15.5.22",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "xlsx": "^0.18.5"
+    "hono": "^4.6.14"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@cloudflare/workers-types": "^4.20250705.0",
+    "@hono/vite-cloudflare-pages": "^0.4.2",
     "@types/node": "^20",
-    "@types/pg": "^8.20.4",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.22",
-    "pg": "^8.22.0",
-    "tailwindcss": "^4",
-    "tsx": "^4.23.8",
-    "typescript": "^5"
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "wrangler": "^3.99.0"
   }
 }

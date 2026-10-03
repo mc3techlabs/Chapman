@@ -1,0 +1,39 @@
+code,name,region_code
+Alabama,Alabama,Southern
+"Arizona, Nevada, New Mexico","Arizona, Nevada, New Mexico",Western
+Arkansas,Arkansas,Southwestern
+Canada,Canada,Midwestern
+District 700,District 700,Region 7
+Florida,Florida,Southern
+Georgia,Georgia,Southern
+Great Northwest,Great Northwest,Western
+Illinois,Illinois,Midwestern
+Indiana,Indiana,Midwestern
+International,International,Eastern
+Iowa,Iowa,Midwestern
+Kansas,Kansas,Midwestern
+Kentucky,Kentucky,Midwestern
+Louisiana,Louisiana,Southwestern
+Michigan,Michigan,Midwestern
+Minnesota,Minnesota,Midwestern
+Mississippi,Mississippi,Southern
+Missouri,Missouri,Midwestern
+Nebraska,Nebraska,Midwestern
+New England,New England,Eastern
+New Jersey,New Jersey,Eastern
+New York,New York,Eastern
+North Carolina,North Carolina,Southern
+Northern California,Northern California,Western
+Ohio,Ohio,Midwestern
+Oklahoma,Oklahoma,Southwestern
+Pennsylvania,Pennsylvania,Eastern
+Renounced,Renounced,Region 7
+Rocky Mountain (Colorado/Utah),Rocky Mountain (Colorado/Utah),Western
+South Carolina,South Carolina,Southern
+Southern California,Southern California,Western
+Tennessee,Tennessee,Southern
+Texas,Texas,Southwestern
+Virginia,Virginia,Eastern
+"Washington DC, Maryland, Delaware","Washington DC, Maryland, Delaware",Eastern
+West Virginia,West Virginia,Midwestern
+Wisconsin,Wisconsin,Midwestern
