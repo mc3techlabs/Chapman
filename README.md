@@ -12,8 +12,11 @@ existing Supabase project by setting environment variables — no code changes r
 - **Stack**: Hono 4 + TypeScript on Cloudflare Pages (Workers runtime) + Supabase (Postgres / Auth / RLS / Storage)
 - **Scoring model**: Yes = 1, No = 0, N/A = baseline 1 — with a `mandatory_penalty` column already in
   the schema so the future "mandatory item = −1" rule ships with **no migration**.
-- **Auth today**: email + password (one shared login per chapter; named reviewer accounts).
-  **AlphaMX SSO** is planned as a later Supabase auth provider behind the same sign-in interface.
+- **Auth today**: email + password. Chapters share one login named `<chapter_key>@apa1906.net`
+  (e.g. `23@apa1906.net`) with an auto-generated password; reviewers are named individuals who
+  receive an **email invite** and set their own password. Provisioning lives in the admin
+  **Access & Logins** console. **AlphaMX SSO** is planned as a later Supabase auth provider behind
+  the same sign-in interface.
 
 ---
 
@@ -23,12 +26,13 @@ existing Supabase project by setting environment variables — no code changes r
 |------|-------|
 | Application code | ✅ Complete (demo-previewable end to end) |
 | Typecheck (`tsc --noEmit`) | ✅ Clean (0 errors) |
-| Production build (`vite build`) | ✅ Passing (`dist/_worker.js`, ~430 kB) |
+| Production build (`vite build`) | ✅ Passing (`dist/_worker.js`, ~455 kB) |
 | Schema + RLS + rollup views | ✅ Written (`supabase/migrations/`) + `supabase/bootstrap.sql` |
 | Seed data | ✅ 872 chapters, 300 rubric items (156 collegiate + 144 alumni), 7 document types |
 | SQL validated | ✅ `bootstrap.sql` run twice on Postgres 17 — 0 errors, idempotent |
 | Deployed to Cloudflare | ✅ **Live** — https://chapman-portal.pages.dev |
 | Attached to your Supabase DB | ✅ Attached — schema + seed applied, secrets set, auth verified |
+| Admin Access console (logins) | ✅ Live — chapter bulk-provision + credentials sheet, reviewer invites |
 
 ---
 
@@ -68,6 +72,25 @@ existing Supabase project by setting environment variables — no code changes r
   - This is the **framework** with file-type / size validation and signed-URL download; the
     per-document **format and required-field lists are intentionally left to be filled in later**.
 
+### Access & Logins (admin console — `/admin/access`)
+- **Chapter logins** are generated in bulk from the roster:
+  - Username convention **`<chapter_key>@apa1906.net`** (e.g. `23@apa1906.net`); the mailbox
+    does not need to exist — it is a login identifier only.
+  - **Passwords auto-generated** per chapter (14 chars, crypto-random, look-alikes `0/O/1/l/I`
+    removed). No password is emailed to chapters.
+  - A **downloadable credentials sheet** (`.csv`: `chapter_key,email,password,status`) is produced
+    on the result screen — **passwords are shown once** and cannot be read back later.
+  - Scope the batch by region / district and provision 1–300 at a time; single chapters can also
+    be created from the roster table. A **username-only template** download is also available.
+- **Reviewers** (District Director, RVP) are invited by email:
+  - `admin.auth.admin.inviteUserByEmail` sends a Supabase email invite; the invitee sets their own
+    password at **`/auth/accept`**.
+  - The invite sets the reviewer's `role_code` and scope in user metadata and **fans out
+    `reviewer_assignments`** to every chapter in that district (DD) or region (RVP).
+  - Reviewers can be **activated / deactivated** (profiles.is_active + auth ban) from the console.
+  - Requires **custom SMTP** + a redirect-URL allow-list entry — see `supabase/SETUP.md`
+    ("SMTP for reviewer invitations").
+
 ### Platform
 - Email + password login (Supabase Auth), httpOnly cookie sessions.
 - Row Level Security on every table, with helper functions so chapters only ever see their own
@@ -88,6 +111,7 @@ All routes are GET unless noted. `:id` = submission id.
 |------|---------|
 | `/login` | Login page (POST `/login` submits email + password) |
 | `/logout` | POST — clears session |
+| `/auth/accept` | Reviewer invitation landing — GET serves the set-password form, POST sets the password |
 | `/health` | JSON status: `{ ok, mode: "demo" \| "supabase" }` |
 | `/demo/preview` | Demo mode only — passwordless entry as the default persona |
 | `/demo/persona` | Demo mode only — POST `persona` to switch role |
@@ -132,6 +156,14 @@ All routes are GET unless noted. `:id` = submission id.
 | `/admin/chapters/import` | POST — spreadsheet import |
 | `/admin/chapters/template` | Download import template |
 | `/admin/chapters/export` | Export roster |
+| `/admin/access` | Access & Logins overview (KPIs + chapter/reviewer cards) |
+| `/admin/access/chapters` | Chapter logins — scope picker, bulk provision, roster with issued/missing |
+| `/admin/access/chapters/provision` | POST — bulk-provision chapter logins + credentials-sheet download |
+| `/admin/access/chapters/:id/login` | POST — create a single chapter login |
+| `/admin/access/chapters/template` | Download pre-filled username template |
+| `/admin/access/reviewers` | Reviewer invites — district/region dropdowns + DD/RVP tables |
+| `/admin/access/reviewers/invite` | POST — invite a District Director / RVP |
+| `/admin/access/reviewers/:id/active` | POST — activate / deactivate a reviewer |
 | `/admin/reviewers` | Reviewer list |
 | `/admin/reviewers/invite` | POST — invite a reviewer |
 | `/admin/rubrics` | Rubric trees |
@@ -163,9 +195,9 @@ identical UI and workflow logic**. `getStore(c)` picks Supabase when `SUPABASE_U
 in-memory store otherwise.
 
 ### Data model (high level)
-- **Org**: `regions` → `districts` → `chapters` (879 seeded), `chapter_types`, `chapter_statuses`.
-- **People**: `profiles` (role, district, region), `chapter_user_links` (shared chapter login),
-  `reviewer_assignments`.
+- **Org**: `regions` → `districts` → `chapters` (872 seeded), `chapter_types`, `chapter_statuses`.
+- **People**: `profiles` (role, district, region, is_active), `chapter_user_links` (shared chapter
+  login), `reviewer_assignments` (fanned out from a reviewer's scope).
 - **Rubric**: `rubric_versions` → `rubric_sections` → `rubric_subsections` → `rubric_items`
   (each item: `default_point_value`, `is_required`, `mandatory_penalty`).
 - **Reporting**: `reporting_windows`, `submissions`, `submission_item_responses`
@@ -175,6 +207,7 @@ in-memory store otherwise.
 
 ### Storage services
 - **Supabase Postgres** for all relational data.
+- **Supabase Auth** for users, sessions and reviewer email invites (custom **SMTP**).
 - **Supabase Storage** for uploads — private bucket (`chapman-documents` by default), written with
   the service-role key, served via short-lived signed URLs.
 
