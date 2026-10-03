@@ -27,8 +27,8 @@ existing Supabase project by setting environment variables — no code changes r
 | Schema + RLS + rollup views | ✅ Written (`supabase/migrations/`) + `supabase/bootstrap.sql` |
 | Seed data | ✅ 872 chapters, 300 rubric items (156 collegiate + 144 alumni), 7 document types |
 | SQL validated | ✅ `bootstrap.sql` run twice on Postgres 17 — 0 errors, idempotent |
-| Deployed to Cloudflare | ✅ **Live** — https://chapman-portal.pages.dev (demo mode) |
-| Attached to your Supabase DB | ⏳ Run `bootstrap.sql`, then set secrets |
+| Deployed to Cloudflare | ✅ **Live** — https://chapman-portal.pages.dev |
+| Attached to your Supabase DB | ✅ Attached — schema + seed applied, secrets set, auth verified |
 
 ---
 
@@ -245,7 +245,7 @@ Full walkthrough: [`supabase/SETUP.md`](supabase/SETUP.md). Short version:
 - **Platform**: Cloudflare Pages (deployed to the owner's own Cloudflare account via a user API token)
 - **Production URL**: **https://chapman-portal.pages.dev**
 - **Project name**: `chapman-portal`
-- **Status**: ✅ Live — currently in **demo mode** (no Supabase secrets set yet)
+- **Status**: ✅ **Live** — attached to Supabase (`/health` → `mode: supabase`)
 - **Build output**: `dist/` (`_worker.js` + `static/`)
 - **Last updated**: 2026-10-03
 
