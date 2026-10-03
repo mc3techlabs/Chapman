@@ -121,7 +121,7 @@ export const Sidebar: FC<{
             {g.items.map((it) => (
               <a
                 href={it.href}
-                class={current === it.href || current.startsWith(it.href + "/") ? "active" : ""}
+                class={it.href === activeHref ? "active" : ""}
               >
                 <span class="icon">{it.icon}</span>
                 {it.label}
