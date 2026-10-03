@@ -138,6 +138,44 @@ export async function provisionChapterLogin(
   return { ...base, status: "created", password };
 }
 
+/**
+ * Reissues the password for an EXISTING chapter login and re-links it.
+ *
+ * Provisioning generates the password once and never stores it, so if the
+ * administrator loses the credentials sheet the only recovery is to set a new
+ * one. This finds the account by its `<chapter_key>@apa1906.net` address, sets a
+ * fresh password, re-confirms the email, and re-asserts the chapter link, so a
+ * chapter login can be recovered without touching the roster.
+ */
+export async function resetChapterLogin(
+  admin: SupabaseClient,
+  chapter: ChapterRef,
+  opts: { password?: string } = {}
+): Promise<ProvisionResult> {
+  const email = chapterEmail(chapter.chapter_key).toLowerCase();
+  const base: ProvisionResult = {
+    chapter_key: chapter.chapter_key,
+    chapter_name: chapter.chapter_name,
+    email,
+    status: "error",
+  };
+
+  const existing = await findAuthUserByEmail(admin, email);
+  if (!existing) {
+    return { ...base, status: "skipped", message: "No login exists yet — create it first." };
+  }
+
+  const password = opts.password || generatePassword();
+  const { error } = await admin.auth.admin.updateUserById(existing.id, {
+    password,
+    email_confirm: true,
+  });
+  if (error) return { ...base, status: "error", message: error.message };
+
+  await linkChapter(admin, chapter.id, existing.id);
+  return { ...base, status: "created", password, message: "Password reset." };
+}
+
 /** Upserts the shared chapter↔login link (idempotent). */
 async function linkChapter(admin: SupabaseClient, chapterId: string, profileId: string) {
   await admin

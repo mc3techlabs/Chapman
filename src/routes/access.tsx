@@ -12,6 +12,7 @@ import {
   listAllAuthUsers,
   provisionChapterLogin,
   provisionChapterLogins,
+  resetChapterLogin,
   setAccountActive,
   type ProvisionResult,
 } from "../lib/provisioning";
@@ -76,6 +77,87 @@ function credsCsv(rows: ProvisionResult[]): string {
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * One-time credentials page for a SINGLE chapter (create or reset). Passwords
+ * are generated at provisioning time and never stored, so this is the only
+ * moment they are visible — mirror the bulk flow's warning + CSV download.
+ */
+async function renderSingleCreds(
+  c: any,
+  opts: { session: any; res: ProvisionResult; heading: string }
+): Promise<Response> {
+  const { session, res, heading } = opts;
+  const csvB64 = b64(credsCsv(res.password ? [res] : []));
+  const body = (
+    <>
+      <PageHead
+        title={`${heading} — ${res.chapter_name}`}
+        lede={<span class="mono">{res.email}</span>}
+        actions={
+          <a class="btn secondary" href="/admin/access/chapters">
+            Back to chapters
+          </a>
+        }
+      />
+
+      {res.password ? (
+        <Callout tone="gold">
+          <strong>Copy this password now — it is shown only once.</strong> It is not stored anywhere
+          and cannot be retrieved later. If you lose it, use <em>Reset password</em> on the chapter
+          row to issue a new one.
+          <div style="margin-top:10px;">
+            <a
+              class="btn gold"
+              download={`chapman-chapter-login-${res.chapter_key}-${today()}.csv`}
+              href={`data:text/csv;charset=utf-8;base64,${csvB64}`}
+            >
+              Download credentials (.csv)
+            </a>
+          </div>
+        </Callout>
+      ) : (
+        <Callout tone={res.status === "error" ? "red" : "blue"}>
+          {res.status === "exists"
+            ? "That chapter already had a login, so no new password was created. Use Reset password to issue a fresh one."
+            : res.message || "Nothing to do."}
+        </Callout>
+      )}
+
+      <div style="margin-top:16px;">
+        <Card title="Credentials">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Key</th>
+                  <th>Chapter</th>
+                  <th>Username</th>
+                  <th>Password</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono tiny">{res.chapter_key}</td>
+                  <td>{res.chapter_name}</td>
+                  <td class="mono tiny">{res.email}</td>
+                  <td class="mono">{res.password ?? "—"}</td>
+                  <td>
+                    <Badge tone={res.status === "created" ? "green" : res.status === "error" ? "red" : "amber"}>
+                      {res.status}
+                    </Badge>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+    </>
+  );
+  return renderPage(c, { title: "Chapter login", session, body });
 }
 
 /* ======================================================================== */
@@ -296,14 +378,26 @@ accessRoutes.get("/admin/access/chapters", async (c) => {
                           <Badge tone={has ? "green" : "amber"}>{has ? "issued" : "missing"}</Badge>
                         </td>
                         <td>
-                          {!has && admin ? (
-                            <form method="post" action={`/admin/access/chapters/${ch.id}/login`}>
-                              <input type="hidden" name="region" value={region} />
-                              <input type="hidden" name="district" value={district} />
-                              <button class="btn secondary small" type="submit">
-                                Create login
-                              </button>
-                            </form>
+                          {admin ? (
+                            has ? (
+                              <form
+                                method="post"
+                                action={`/admin/access/chapters/${ch.id}/reset`}
+                                onsubmit="return confirm('Issue a new password for this chapter? The old password stops working immediately.')"
+                              >
+                                <button class="btn secondary small" type="submit">
+                                  Reset password
+                                </button>
+                              </form>
+                            ) : (
+                              <form method="post" action={`/admin/access/chapters/${ch.id}/login`}>
+                                <input type="hidden" name="region" value={region} />
+                                <input type="hidden" name="district" value={district} />
+                                <button class="btn secondary small" type="submit">
+                                  Create login
+                                </button>
+                              </form>
+                            )
                           ) : null}
                         </td>
                       </tr>
@@ -452,26 +546,30 @@ accessRoutes.post("/admin/access/chapters/provision", async (c) => {
   return renderPage(c, { title: "Provision results", session, body });
 });
 
-/** Single chapter login, from the roster row action. */
+/** Single chapter login, from the roster row action. Shows the one-time password. */
 accessRoutes.post("/admin/access/chapters/:id/login", async (c) => {
   const ctx = await requireAdmin(c);
   if (ctx instanceof Response) return ctx;
-  const { admin } = ctx;
+  const { session, admin } = ctx;
   if (!admin) return c.text("Service role not configured.", 400);
   const store = getStore(c);
-  const id = c.req.param("id");
-  const ch = await store.getChapter(id);
-  const back = `/admin/access/chapters${c.req.query("region") ? `?region=${c.req.query("region")}` : ""}`;
-  if (!ch) return c.redirect(`${back}&err=notfound`);
+  const ch = await store.getChapter(c.req.param("id"));
+  if (!ch) return c.redirect("/admin/access/chapters?err=notfound");
   const res = await provisionChapterLogin(admin, ch as any, { email: chapterEmail(ch.chapter_key) });
-  if (res.status === "created" || res.status === "exists") {
-    return c.redirect(
-      `/admin/access/chapters?ok=${encodeURIComponent(
-        `${res.email} — ${res.status === "created" ? "created" : "already existed"}`
-      )}`
-    );
-  }
-  return c.redirect(`/admin/access/chapters?ok=${encodeURIComponent("Error: " + (res.message ?? ""))}`);
+  return renderSingleCreds(c, { session, res, heading: "Chapter login" });
+});
+
+/** Reissue a password for an EXISTING chapter login (recovery path). */
+accessRoutes.post("/admin/access/chapters/:id/reset", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, admin } = ctx;
+  if (!admin) return c.text("Service role not configured.", 400);
+  const store = getStore(c);
+  const ch = await store.getChapter(c.req.param("id"));
+  if (!ch) return c.redirect("/admin/access/chapters?err=notfound");
+  const res = await resetChapterLogin(admin, ch as any);
+  return renderSingleCreds(c, { session, res, heading: "Password reset" });
 });
 
 /* ======================================================================== */

@@ -169,8 +169,9 @@ chapter_key,email,password,status
 ```
 
 > **Store that file securely — the passwords cannot be read back later.** If a
-> chapter loses its password, use the reviewer/admin tools to reset it, or
-> re-run provisioning for that single chapter.
+> chapter loses its password, open **Chapter logins**, find its row (it will show
+> `issued`), and click **Reset password** — this issues a fresh one-time password
+> and shows the same download sheet. The old password stops working immediately.
 
 **To issue logins:**
 
@@ -178,6 +179,11 @@ chapter_key,email,password,status
 2. Optionally narrow by **region** and/or **district**.
 3. Set **how many** chapters to provision (1–300) and submit.
 4. Download the **credentials sheet** and distribute each row to its chapter.
+
+Each create (bulk batch *or* a single roster-row **Create login**) lands on a
+result screen with the one-time password and that download link — if you created
+a single login earlier and saw only "created" with no password, use **Reset
+password** on that row to issue a fresh one.
 
 The **"Download username template"** button gives you a pre-filled
 `chapter_key,email` sheet for the currently selected scope, with no passwords.
