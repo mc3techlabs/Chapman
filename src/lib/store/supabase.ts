@@ -46,14 +46,21 @@ export interface SupabaseEnv {
  */
 export function createSupabaseStore(
   env: SupabaseEnv,
-  accessToken: string | null
+  accessToken: string | null,
+  refreshToken: string | null = null,
+  onTokens?: (t: { access_token: string; refresh_token: string }) => void
 ): Store {
-  const client: SupabaseClient = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: accessToken
-      ? { headers: { Authorization: `Bearer ${accessToken}` } }
-      : undefined,
-  });
+  const makeClient = (token: string | null): SupabaseClient =>
+    createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+    });
+
+  // Token is mutable: a refresh replaces the client so subsequent queries in the
+  // same request run as the refreshed user.
+  let client: SupabaseClient = makeClient(accessToken);
+  let token: string | null = accessToken;
+  let refreshTok: string | null = refreshToken;
 
   const admin = env.SUPABASE_SERVICE_ROLE_KEY
     ? createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -62,8 +69,29 @@ export function createSupabaseStore(
     : null;
 
   async function profileAndSession(): Promise<SessionUser | null> {
-    const { data: userData } = await client.auth.getUser();
-    const user = userData?.user;
+    // The client is stateless (persistSession: false), so identity must be
+    // resolved from the access token explicitly. If it has expired, try the
+    // refresh token once; on success the client is rebuilt with the new token,
+    // so this same request's data queries stay authenticated.
+    let user: { id: string; email?: string | null } | null = null;
+    if (token) {
+      let res = await client.auth.getUser(token);
+      if (res.error && refreshTok) {
+        const refreshed = await client.auth.refreshSession({ refresh_token: refreshTok });
+        if (!refreshed.error && refreshed.data?.session) {
+          token = refreshed.data.session.access_token;
+          refreshTok = refreshed.data.session.refresh_token;
+          client = makeClient(token);
+          onTokens?.({ access_token: token, refresh_token: refreshTok });
+          res = await client.auth.getUser(token);
+        }
+      }
+      if (res.error) return null;
+      user = res.data?.user ?? null;
+    } else {
+      const { data } = await client.auth.getUser();
+      user = data?.user ?? null;
+    }
     if (!user) return null;
     const { data: profile } = await client
       .from("profiles")
@@ -85,6 +113,15 @@ export function createSupabaseStore(
       region: profile.region ?? null,
       chapterIds: (links ?? []).map((l: any) => l.chapter_id),
     };
+  }
+
+  // Resolves the signed-in user's id as the database sees it. Needed for writes
+  // (submitted_by, reviewer, audit actor) that must belong to the caller — the
+  // client is stateless, so the id comes from the access token, never client
+  // session state.
+  async function currentUserId(): Promise<string | null> {
+    const s = await profileAndSession();
+    return s?.profileId ?? null;
   }
 
   async function buildRubric(versionCode: string): Promise<RubricTree | null> {
@@ -138,17 +175,28 @@ export function createSupabaseStore(
     },
 
     async signIn(email, password) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) return { error: "Invalid email or password." };
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error || !data?.session) {
+        return { error: "Invalid email or password." };
+      }
       // Self-heal a missing profile row — e.g. an account created before the
-      // schema was applied. Best-effort: if the helper is not installed yet the
-      // sign-in still succeeds and the trigger / backfill handles it instead.
+      // schema was applied. Must run as the *signed-in* user (the helper is
+      // SECURITY DEFINER and reads auth.uid()), so use a client carrying the new
+      // token. Best-effort: ignored on a project without the helper.
       try {
-        await client.rpc("ensure_profile");
+        const authed = makeClient(data.session.access_token);
+        await authed.rpc("ensure_profile");
       } catch {
         /* older project without the helper — ignore */
       }
-      return {};
+      // Return the tokens so the caller can set the session cookie. The Supabase
+      // client here is stateless, so nothing stays authenticated without them.
+      return {
+        tokens: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        },
+      };
     },
 
     async signOut() {
@@ -342,7 +390,7 @@ export function createSupabaseStore(
     },
 
     async submitReport(submissionId) {
-      const { data: user } = await client.auth.getUser();
+      const actorId = await currentUserId();
       await client
         .from("submissions")
         .update({
@@ -351,10 +399,10 @@ export function createSupabaseStore(
           regional_review_status: "pending",
           executive_review_status: "pending",
           submitted_at: new Date().toISOString(),
-          submitted_by_profile_id: user?.user?.id ?? null,
+          submitted_by_profile_id: actorId,
         })
         .eq("id", submissionId);
-      await logAction(client, submissionId, "submitted", {});
+      await logAction(client, submissionId, "submitted", {}, actorId);
     },
 
     async listReviewQueue(role, period) {
@@ -413,7 +461,7 @@ export function createSupabaseStore(
         patch.workflow_status = "pending_executive";
       }
       await client.from("submissions").update(patch).eq("id", submissionId);
-      await recordApproval(client, submissionId, role, "approved", comment);
+      await recordApproval(client, submissionId, role, "approved", comment, await currentUserId());
     },
 
     async returnSubmission(submissionId, role, comment) {
@@ -421,7 +469,7 @@ export function createSupabaseStore(
       if (role === "district_director") patch.district_review_status = "returned";
       if (role === "rvp") patch.regional_review_status = "returned";
       await client.from("submissions").update(patch).eq("id", submissionId);
-      await recordApproval(client, submissionId, role, "returned", comment);
+      await recordApproval(client, submissionId, role, "returned", comment, await currentUserId());
     },
 
     async reopenSubmission(submissionId, comment) {
@@ -434,7 +482,7 @@ export function createSupabaseStore(
           executive_review_status: "pending",
         })
         .eq("id", submissionId);
-      await logAction(client, submissionId, "reopened", { comment: comment ?? null });
+      await logAction(client, submissionId, "reopened", { comment: comment ?? null }, await currentUserId());
     },
 
     async listApprovalActions(submissionId) {
@@ -572,13 +620,13 @@ async function recordApproval(
   submissionId: string,
   role: string,
   action: "approved" | "returned" | "reopened",
-  comment?: string
+  comment: string | undefined,
+  actorId: string | null
 ) {
-  const { data: user } = await client.auth.getUser();
-  if (!user?.user) return;
+  if (!actorId) return;
   await client.from("approval_actions").insert({
     submission_id: submissionId,
-    reviewer_profile_id: user.user.id,
+    reviewer_profile_id: actorId,
     reviewer_role_code: role,
     action,
     action_comment: comment ?? null,
@@ -589,11 +637,11 @@ async function logAction(
   client: SupabaseClient,
   entityId: string,
   action: string,
-  metadata: Record<string, unknown>
+  metadata: Record<string, unknown>,
+  actorId: string | null
 ) {
-  const { data: user } = await client.auth.getUser();
   await client.from("audit_log").insert({
-    actor_profile_id: user?.user?.id ?? null,
+    actor_profile_id: actorId,
     entity_type: "submission",
     entity_id: entityId,
     action,

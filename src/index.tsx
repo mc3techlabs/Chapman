@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/cloudflare-workers";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import type { AppEnv } from "./lib/store";
-import { getStore, isDemoMode } from "./lib/store";
+import { getStore, isDemoMode, createSupabaseStore, type SupabaseEnv } from "./lib/store";
 import { clearSession, readDemoPersona, writeDemoPersona, writeSession } from "./lib/session";
 import { ROLE_HOME } from "./lib/format";
 import { LoginPage } from "./views/layout";
@@ -45,12 +45,42 @@ app.post("/login", async (c) => {
   const password = String(form.get("password") ?? "");
   const store = getStore(c);
   const result = await store.signIn(email, password);
+  const demo = isDemoMode(c.env);
   if (result.error) {
-    const demo = isDemoMode(c.env);
     return renderBare(c, <LoginPage error={result.error} demo={demo} />, 401);
   }
-  const session = await store.getSession();
-  return c.redirect(session ? ROLE_HOME[session.role] : "/");
+
+  // Persist the Supabase tokens. `getStore` builds a fresh, stateless client per
+  // request (persistSession: false) that authenticates from the access cookie —
+  // without this the next request is anonymous and the auth gate bounces the
+  // user straight back to /login.
+  if (result.tokens) {
+    writeSession(c, result.tokens);
+  }
+
+  // Re-issue with the token now available so we can read the profile + role.
+  // The request cookie set above is a *response* cookie, so it is not readable
+  // in this same request — build an authenticated store straight from the tokens.
+  const authedStore = result.tokens
+    ? createSupabaseStore(
+        c.env as SupabaseEnv,
+        result.tokens.access_token,
+        result.tokens.refresh_token,
+        (t) => writeSession(c, t)
+      )
+    : getStore(c);
+  const session = await authedStore.getSession();
+  if (!session) {
+    return renderBare(
+      c,
+      <LoginPage
+        demo={demo}
+        error="Signed in, but no portal profile is linked to this account yet. An administrator needs to assign your role — see supabase/fix-auth-profiles.sql."
+      />,
+      403
+    );
+  }
+  return c.redirect(ROLE_HOME[session.role] ?? "/login");
 });
 
 app.post("/logout", async (c) => {

@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Store } from "./types";
 import { createDemoStore } from "./demo";
 import { createSupabaseStore, type SupabaseEnv } from "./supabase";
-import { isDemoMode, readDemoPersona, readTokens } from "../session";
+import { isDemoMode, readDemoPersona, readTokens, writeSession } from "../session";
 
 export interface AppEnv {
   SUPABASE_URL?: string;
@@ -26,8 +26,12 @@ export function getStore(c: Context): Store {
   if (isDemoMode(env)) {
     return createDemoStore(readDemoPersona(c));
   }
-  const { accessToken } = readTokens(c);
-  return createSupabaseStore(env as SupabaseEnv, accessToken);
+  const { accessToken, refreshToken } = readTokens(c);
+  // Pass the refresh token so an expired access token is renewed, and persist
+  // any refreshed tokens back onto the response cookie.
+  return createSupabaseStore(env as SupabaseEnv, accessToken, refreshToken, (t) =>
+    writeSession(c, t)
+  );
 }
 
 /**

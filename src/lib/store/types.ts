@@ -33,10 +33,21 @@ import type {
  * Every method that returns potentially-large collections takes pagination or
  * a filter, so nothing loads an 800-row table unbounded.
  */
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+}
+
 export interface Store {
   /** Who is signed in, or null. */
   getSession(): Promise<SessionUser | null>;
-  signIn(email: string, password: string): Promise<{ error?: string }>;
+  /**
+   * Attempts sign-in. On success returns the Supabase tokens, which the caller
+   * MUST persist (httpOnly cookie) — the Supabase client is stateless
+   * (persistSession: false), so nothing is authenticated until the token is
+   * sent back on the next request.
+   */
+  signIn(email: string, password: string): Promise<{ error?: string; tokens?: AuthTokens }>;
   signOut(): Promise<void>;
 
   /** Current (or requested) reporting period. */

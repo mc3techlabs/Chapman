@@ -307,6 +307,7 @@ export function createDemoStore(cookie: string | undefined): Store {
       return session;
     },
     async signIn() {
+      // Demo mode is persona-based; there is no token to return.
       return {};
     },
     async signOut() {},

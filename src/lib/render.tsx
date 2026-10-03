@@ -54,7 +54,7 @@ export async function renderPage(
 export async function renderBare(
   c: Context,
   body: Child,
-  status: 200 | 401 = 200
+  status: 200 | 401 | 403 | 404 = 200
 ): Promise<Response> {
   const page = (
     <html lang="en">
