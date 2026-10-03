@@ -140,6 +140,14 @@ export function createSupabaseStore(
     async signIn(email, password) {
       const { error } = await client.auth.signInWithPassword({ email, password });
       if (error) return { error: "Invalid email or password." };
+      // Self-heal a missing profile row — e.g. an account created before the
+      // schema was applied. Best-effort: if the helper is not installed yet the
+      // sign-in still succeeds and the trigger / backfill handles it instead.
+      try {
+        await client.rpc("ensure_profile");
+      } catch {
+        /* older project without the helper — ignore */
+      }
       return {};
     },
 
