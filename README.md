@@ -81,7 +81,8 @@ existing Supabase project by setting environment variables — no code changes r
   - A **downloadable credentials sheet** (`.csv`: `chapter_key,email,password,status`) is produced
     on the result screen — **passwords are shown once** and cannot be read back later.
   - Scope the batch by region / district and provision 1–300 at a time; single chapters can also
-    be created from the roster table. A **username-only template** download is also available.
+    be created from the roster table (each shows the one-time password). Lost a password? The row's
+    **Reset password** action issues a fresh one. A **username-only template** download is available.
 - **Reviewers** (District Director, RVP) are invited by email:
   - `admin.auth.admin.inviteUserByEmail` sends a Supabase email invite; the invitee sets their own
     password at **`/auth/accept`**.
