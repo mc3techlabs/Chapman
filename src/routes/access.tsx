@@ -13,6 +13,7 @@ import {
   provisionChapterLogin,
   provisionChapterLogins,
   resetChapterLogin,
+  resetReviewerPassword,
   setAccountActive,
   type ProvisionResult,
 } from "../lib/provisioning";
@@ -611,7 +612,16 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
                   <td>
                     <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
                   </td>
-                  <td>
+                  <td class="row" style="gap:6px;">
+                    <form
+                      method="post"
+                      action={`/admin/access/reviewers/${p.id}/reset`}
+                      onsubmit="return confirm('Send this reviewer a password reset email?')"
+                    >
+                      <button class="btn secondary small" type="submit">
+                        Reset password
+                      </button>
+                    </form>
                     <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
                       <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
                       <button class="btn secondary small" type="submit">
@@ -727,6 +737,31 @@ accessRoutes.post("/admin/access/reviewers/invite", async (c) => {
     `/admin/access/reviewers?ok=${encodeURIComponent(
       `Invite sent to ${email} (${role.replace(/_/g, " ")}, ${scopeNote}) — scope assigned.`
     )}`
+  );
+});
+
+accessRoutes.post("/admin/access/reviewers/:id/reset", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/reviewers?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  // Resolve the email server-side from the profile id rather than trusting
+  // a client-submitted value, so this can only ever target the account the
+  // admin is actually looking at in the reviewers table.
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/reviewers?err=Reviewer%20not%20found");
+  }
+
+  const res = await resetReviewerPassword(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/reviewers?err=${encodeURIComponent(res.message ?? "Reset failed")}`);
+  }
+  return c.redirect(
+    `/admin/access/reviewers?ok=${encodeURIComponent(`Password reset email sent to ${data.user.email}.`)}`
   );
 });
 

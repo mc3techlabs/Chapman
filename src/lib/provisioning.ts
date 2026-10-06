@@ -297,6 +297,27 @@ export async function createReviewerAccount(
   return { ok: true, userId, email };
 }
 
+/**
+ * Sends a reviewer a password-reset email (the same Supabase mailer that
+ * sends invites). Unlike a chapter's shared login, a reviewer's account is
+ * individually attributed, so an admin never generates or sees the new
+ * password - the reviewer sets it themselves by following the email link,
+ * which lands on the same /auth/accept page the invite flow already uses
+ * (it only cares about a valid access_token in the URL, not whether it came
+ * from an invite or a recovery request).
+ */
+export async function resetReviewerPassword(
+  admin: SupabaseClient,
+  email: string,
+  origin: string
+): Promise<{ ok: boolean; message?: string }> {
+  const { error } = await admin.auth.resetPasswordForEmail(email.toLowerCase().trim(), {
+    redirectTo: `${origin}/auth/accept`,
+  });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
+}
+
 /** Sets role / scope on a profile. */
 export async function setProfileScope(
   admin: SupabaseClient,
