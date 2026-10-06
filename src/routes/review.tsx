@@ -63,6 +63,20 @@ async function renderReviewerDashboard(c: any, role: ReviewerRole) {
   const finalized = all.filter((s) => s.workflow_status === "finalized");
   const returned = all.filter((s) => s.workflow_status === "returned");
 
+  // Full chapter roster for the lane's scope (district_director/rvp only -
+  // executive_director's scope is the whole national roster, already served
+  // by /national/rollups and /national/approvals). listVisibleSubmissions
+  // only returns chapters that have started a submission this period, so a
+  // chapter with none yet wouldn't appear there - the roster fills in those
+  // as "Not started" instead of silently omitting them.
+  const roster =
+    role === "district_director" && session.district
+      ? (await store.listChapters({ district: session.district, limit: 1000 })).rows
+      : role === "rvp" && session.region
+      ? (await store.listChapters({ region: session.region, limit: 1000 })).rows
+      : [];
+  const submissionByChapter = new Map(all.map((s) => [s.chapter.id, s]));
+
   const body = (
     <>
       <PageHead
@@ -157,6 +171,70 @@ async function renderReviewerDashboard(c: any, role: ReviewerRole) {
           </div>
         </Card>
       </div>
+
+      {roster.length > 0 ? (
+        <div style="margin-top:16px;">
+          <Card title={`Chapters in ${scopeName} (${roster.length})`}>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Chapter</th>
+                    <th class="num">Score</th>
+                    <th>Status</th>
+                    <th>Lanes</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {roster.map((ch) => {
+                    const s = submissionByChapter.get(ch.id);
+                    return (
+                      <tr>
+                        <td>
+                          <strong>{ch.chapter_name}</strong>
+                          <div class="tiny muted">Key {ch.chapter_key}</div>
+                        </td>
+                        <td class="num">{s ? `${s.final_score} / ${s.max_score}` : "—"}</td>
+                        <td>
+                          {s ? (
+                            <Badge tone={workflowTone(s.workflow_status)}>
+                              {workflowLabel(s.workflow_status)}
+                            </Badge>
+                          ) : (
+                            <Badge tone="gray">Not started</Badge>
+                          )}
+                        </td>
+                        <td>
+                          {s ? (
+                            <div class="row" style="gap:6px;">
+                              <Badge tone={reviewTone(s.district_review_status)}>
+                                DD {reviewLabel(s.district_review_status)}
+                              </Badge>
+                              <Badge tone={reviewTone(s.regional_review_status)}>
+                                RVP {reviewLabel(s.regional_review_status)}
+                              </Badge>
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>
+                          {s ? (
+                            <a class="btn secondary small" href={`${lane.base}/review/${s.id}`}>
+                              {s.workflow_status === "finalized" ? "View" : "Review"}
+                            </a>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </>
   );
 
