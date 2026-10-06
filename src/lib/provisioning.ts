@@ -298,12 +298,37 @@ export async function createReviewerAccount(
 }
 
 /**
- * Sends a reviewer a password-reset email (the same Supabase mailer that
- * sends invites). Unlike a chapter's shared login, a reviewer's account is
- * individually attributed, so an admin never generates or sees the new
- * password - the reviewer sets it themselves by following the email link,
- * which lands on the same /auth/accept page the invite flow already uses
- * (it only cares about a valid access_token in the URL, not whether it came
+ * Invites a new admin (Supabase sends the email; they set their own
+ * password), the same individually-attributed-account pattern as
+ * createReviewerAccount, just with no district/region scope to assign.
+ */
+export async function createAdminAccount(
+  admin: SupabaseClient,
+  input: { email: string; fullName: string; origin: string }
+): Promise<{ ok: boolean; userId?: string; email: string; message?: string }> {
+  const email = input.email.toLowerCase().trim();
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { role_code: "admin", full_name: input.fullName },
+    redirectTo: `${input.origin}/auth/accept`,
+  });
+  if (error) return { ok: false, email, message: error.message };
+  const userId = data?.user?.id;
+  if (!userId) return { ok: false, email, message: "Invite sent but no user id returned." };
+
+  // Belt-and-suspenders, matching createReviewerAccount: the on_auth_user_created
+  // trigger already sets role_code from the invite metadata, this just
+  // guarantees it even if the trigger's metadata read ever changes.
+  await setProfileScope(admin, userId, { role: "admin" });
+  return { ok: true, userId, email };
+}
+
+/**
+ * Sends an individually-attributed account (reviewer or admin) a
+ * password-reset email (the same Supabase mailer that sends invites). The
+ * admin triggering this never generates or sees the new password - the
+ * account holder sets it themselves by following the email link, which
+ * lands on the same /auth/accept page the invite flow already uses (it
+ * only cares about a valid access_token in the URL, not whether it came
  * from an invite or a recovery request).
  */
 export async function resetReviewerPassword(

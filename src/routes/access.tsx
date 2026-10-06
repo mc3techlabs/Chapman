@@ -8,6 +8,7 @@ import type { Chapter } from "../lib/types";
 import {
   CHAPTER_EMAIL_DOMAIN,
   chapterEmail,
+  createAdminAccount,
   createReviewerAccount,
   listAllAuthUsers,
   provisionChapterLogin,
@@ -170,9 +171,10 @@ accessRoutes.get("/admin/access", async (c) => {
   const { session, admin } = ctx;
   const store = getStore(c);
 
-  const [dds, rvps] = await Promise.all([
+  const [dds, rvps, admins] = await Promise.all([
     store.listProfilesByRole("district_director"),
     store.listProfilesByRole("rvp"),
+    store.listProfilesByRole("admin"),
   ]);
   const chapterCount = (await scopeChapters(store, {})).length;
 
@@ -202,9 +204,10 @@ accessRoutes.get("/admin/access", async (c) => {
         <Kpi label="Chapter logins issued" value={fmtNumber(provisioned)} tone="green" />
         <Kpi label="District Directors" value={fmtNumber(dds.length)} tone="blue" />
         <Kpi label="Regional VPs" value={fmtNumber(rvps.length)} tone="blue" />
+        <Kpi label="Admins" value={fmtNumber(admins.length)} tone="blue" />
       </div>
 
-      <div class="grid grid-2" style="margin-top:16px;">
+      <div class="grid grid-3" style="margin-top:16px;">
         <Card
           title="Chapter logins"
           action={
@@ -231,6 +234,20 @@ accessRoutes.get("/admin/access", async (c) => {
           <p class="muted small">
             District Directors and RVPs are named individuals. They receive an email invite and set
             their own password; their whole review scope is assigned automatically.
+          </p>
+        </Card>
+
+        <Card
+          title="Admins"
+          action={
+            <a class="btn gold" href="/admin/access/admins">
+              Manage
+            </a>
+          }
+        >
+          <p class="muted small">
+            Full access to every chapter, reviewer, rubric and reporting tool. They receive an email
+            invite and set their own password, same as a reviewer.
           </p>
         </Card>
       </div>
@@ -776,5 +793,192 @@ accessRoutes.post("/admin/access/reviewers/:id/active", async (c) => {
   await setAccountActive(admin, id, active);
   return c.redirect(
     `/admin/access/reviewers?ok=${encodeURIComponent(active ? "Account reactivated." : "Account deactivated.")}`
+  );
+});
+
+/* ======================================================================== */
+/* Admins                                                                   */
+/* ======================================================================== */
+accessRoutes.get("/admin/access/admins", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, admin } = ctx;
+  const store = getStore(c);
+  const admins = await store.listProfilesByRole("admin");
+
+  const ok = c.req.query("ok");
+  const err = c.req.query("err");
+
+  const body = (
+    <>
+      <PageHead
+        title="Admins"
+        lede="Full access to every chapter, reviewer, rubric and reporting tool."
+        actions={
+          <a class="btn secondary" href="/admin/access">
+            Back
+          </a>
+        }
+      />
+      {ok ? <Callout tone="green">{decodeURIComponent(ok)}</Callout> : null}
+      {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
+      {!admin ? (
+        <Callout tone="red">
+          Inviting admins needs the live database (service-role key not configured here).
+        </Callout>
+      ) : null}
+
+      <Card title="Invite an admin">
+        <p class="muted small">
+          Supabase emails an invitation; the new admin sets their own password. Give this only to
+          people who should have full access — an admin can manage every chapter, reviewer, and
+          other admin account.
+        </p>
+        <form method="post" action="/admin/access/admins/invite" class="grid grid-3" style="margin-top:12px;">
+          <label class="field">
+            <span>Full name</span>
+            <input type="text" name="full_name" required />
+          </label>
+          <label class="field">
+            <span>Email</span>
+            <input type="email" name="email" required />
+          </label>
+          <div class="row" style="align-items:flex-end;">
+            <button class="btn gold" type="submit" disabled={!admin}>
+              Send invite
+            </button>
+          </div>
+        </form>
+      </Card>
+
+      <div style="margin-top:16px;">
+        <Card title={`Admins (${admins.length})`}>
+          {admins.length === 0 ? (
+            <Empty>None yet.</Empty>
+          ) : (
+            <div class="table-wrap" style="max-height:420px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Active</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {admins.map((p: any) => {
+                    const isSelf = p.id === session.profileId;
+                    return (
+                      <tr>
+                        <td>
+                          {p.full_name || "—"}
+                          {isSelf ? <span class="tiny muted"> (you)</span> : null}
+                        </td>
+                        <td class="mono tiny">{p.email}</td>
+                        <td>
+                          <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
+                        </td>
+                        <td class="row" style="gap:6px;">
+                          <form
+                            method="post"
+                            action={`/admin/access/admins/${p.id}/reset`}
+                            onsubmit="return confirm('Send this admin a password reset email?')"
+                          >
+                            <button class="btn secondary small" type="submit">
+                              Reset password
+                            </button>
+                          </form>
+                          {!isSelf ? (
+                            <form
+                              method="post"
+                              action={`/admin/access/admins/${p.id}/active`}
+                              onsubmit={
+                                p.is_active
+                                  ? "return confirm('Remove admin access for this person?')"
+                                  : undefined
+                              }
+                            >
+                              <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
+                              <button class="btn secondary small" type="submit">
+                                {p.is_active ? "Deactivate" : "Reactivate"}
+                              </button>
+                            </form>
+                          ) : (
+                            <span class="tiny muted">Can't deactivate your own account</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+  return renderPage(c, { title: "Admins", session, body });
+});
+
+accessRoutes.post("/admin/access/admins/invite", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const form = await c.req.formData();
+  const email = String(form.get("email") ?? "").trim();
+  const fullName = String(form.get("full_name") ?? "").trim();
+  const origin = new URL(c.req.url).origin;
+
+  const res = await createAdminAccount(admin, { email, fullName, origin });
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Invite failed")}`);
+  }
+  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Invite sent to ${email}.`)}`);
+});
+
+accessRoutes.post("/admin/access/admins/:id/reset", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/admins?err=Admin%20not%20found");
+  }
+
+  const res = await resetReviewerPassword(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Reset failed")}`);
+  }
+  return c.redirect(
+    `/admin/access/admins?ok=${encodeURIComponent(`Password reset email sent to ${data.user.email}.`)}`
+  );
+});
+
+accessRoutes.post("/admin/access/admins/:id/active", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+
+  // Server-side guard, not just UI: never let an admin remove their own
+  // access this way - a mis-click or a crafted request could otherwise
+  // lock out the only admin signed in to undo it.
+  if (id === session.profileId) {
+    return c.redirect("/admin/access/admins?err=You%20can't%20deactivate%20your%20own%20account");
+  }
+
+  const form = await c.req.formData();
+  const active = String(form.get("active") ?? "0") === "1";
+  await setAccountActive(admin, id, active);
+  return c.redirect(
+    `/admin/access/admins?ok=${encodeURIComponent(active ? "Admin reactivated." : "Admin deactivated.")}`
   );
 });
