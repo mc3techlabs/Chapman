@@ -5,6 +5,8 @@ import { Badge, Callout, Card, Empty, Kpi, MiniBar, PageHead } from "../views/co
 import { fmtBytes, fmtDate, fmtPercent, fmtNumber, periodLabel } from "../lib/format";
 import { parseCsv, pickField, toCsv, csvResponse } from "../lib/csv";
 import { normalizeChapterType } from "../lib/session";
+import { importTaxCompliance, REQUIRED_TAX_COLUMNS } from "../lib/taxImport";
+import * as XLSX from "xlsx";
 import type { Chapter } from "../lib/types";
 
 export const adminRoutes = new Hono<{ Bindings: any; Variables: any }>();
@@ -175,6 +177,9 @@ adminRoutes.get("/admin/chapters", async (c) => {
   if (ctx instanceof Response) return ctx;
   const { session, canWrite } = ctx;
   const store = getStore(c);
+  const period = await store.getCurrentPeriod();
+  const taxOk = c.req.query("tax_ok");
+  const taxErr = c.req.query("tax_err");
   const q = c.req.query();
   const page = await store.listChapters({
     search: q.search,
@@ -238,6 +243,50 @@ adminRoutes.get("/admin/chapters", async (c) => {
           <div class="callout" style="margin-top:12px;">
             Dechartered chapters are hidden from reporting by default.
           </div>
+        </Card>
+      </div>
+
+      <div style="margin-top:16px;">
+        <Card title="Tax compliance import — General Fees (1.1c)">
+          <p class="muted small">
+            Upload an AlphaMX renewal billing export (.xlsx). For each chapter it names, General
+            Fees (1.1c) is marked <strong>Yes</strong> only when all three are fulfilled this
+            cycle — Chapter Tax (paid), Chapter Insurance ($700/yr), and Delegate Premium — and{" "}
+            <strong>No</strong> otherwise. A chapter the file never mentions is left untouched, and
+            a chapter whose report has already moved past draft/returned is skipped, not overwritten.
+          </p>
+          {taxOk ? <Callout tone="green">{decodeURIComponent(taxOk)}</Callout> : null}
+          {taxErr ? <Callout tone="red">{decodeURIComponent(taxErr)}</Callout> : null}
+          {canWrite ? (
+            <form
+              method="post"
+              action="/admin/chapters/tax-compliance"
+              enctype="multipart/form-data"
+              class="grid grid-3"
+              style="margin-top:12px;align-items:flex-end;"
+            >
+              <label class="field">
+                <span>Term</span>
+                <select name="term_code">
+                  <option value="fall" selected={period.termCode === "fall"}>Fall</option>
+                  <option value="spring" selected={period.termCode === "spring"}>Spring</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Reporting year</span>
+                <input type="number" name="reporting_year" value={period.reportingYear} required />
+              </label>
+              <label class="field">
+                <span>AlphaMX billing export (.xlsx)</span>
+                <input type="file" name="file" accept=".xlsx" required />
+              </label>
+              <div class="row" style="grid-column:1/-1;">
+                <button class="btn gold" type="submit">Import tax compliance</button>
+              </div>
+            </form>
+          ) : (
+            <p class="muted small">Read-only access — this import is limited to full admins.</p>
+          )}
         </Card>
       </div>
 
@@ -371,6 +420,66 @@ adminRoutes.post("/admin/chapters/import", async (c) => {
     </>
   );
   return renderPage(c, { title: "Import complete", session, body });
+});
+
+adminRoutes.post("/admin/chapters/tax-compliance", async (c) => {
+  const session = await requireAdmin(c);
+  if (session instanceof Response) return session;
+  const form = await c.req.formData();
+
+  const termCode = String(form.get("term_code") ?? "");
+  const reportingYear = Number(form.get("reporting_year"));
+  const file = form.get("file");
+
+  if (termCode !== "fall" && termCode !== "spring") {
+    return c.redirect(`/admin/chapters?tax_err=${encodeURIComponent("Choose a term.")}`);
+  }
+  if (!Number.isInteger(reportingYear)) {
+    return c.redirect(`/admin/chapters?tax_err=${encodeURIComponent("Choose a reporting year.")}`);
+  }
+  if (!(file instanceof File) || file.size === 0) {
+    return c.redirect(`/admin/chapters?tax_err=${encodeURIComponent("Choose an Excel (.xlsx) file first.")}`);
+  }
+
+  let rows: Record<string, unknown>[];
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: "array", cellDates: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
+  } catch (err) {
+    return c.redirect(
+      `/admin/chapters?tax_err=${encodeURIComponent(
+        `Failed to read that file as an Excel workbook: ${err instanceof Error ? err.message : "unknown error"}`
+      )}`
+    );
+  }
+  if (rows.length === 0) {
+    return c.redirect(`/admin/chapters?tax_err=${encodeURIComponent("No rows found in that file.")}`);
+  }
+  const missingColumns = REQUIRED_TAX_COLUMNS.filter((col) => !(col in rows[0]));
+  if (missingColumns.length > 0) {
+    return c.redirect(
+      `/admin/chapters?tax_err=${encodeURIComponent(
+        `This doesn't look like an AlphaMX renewal billing export - missing column(s): ${missingColumns.join(", ")}.`
+      )}`
+    );
+  }
+
+  const store = getStore(c);
+  const result = await importTaxCompliance(store, rows, termCode, reportingYear);
+
+  const summary = `Marked ${result.markedYes} chapter${result.markedYes === 1 ? "" : "s"} Yes and ${result.markedNo} No for General Fees (1.1c), ${termCode} ${reportingYear}.${result.skipped ? ` ${result.skipped} skipped (already past draft/returned).` : ""}`;
+  if (result.errors.length > 0) {
+    const shown = result.errors.slice(0, 20);
+    const more = result.errors.length > 20 ? ` …and ${result.errors.length - 20} more.` : "";
+    return c.redirect(
+      `/admin/chapters?${result.markedYes + result.markedNo > 0 ? "tax_ok" : "tax_err"}=${encodeURIComponent(
+        `${summary} ${result.errors.length} issue${result.errors.length === 1 ? "" : "s"}: ${shown.join(" | ")}${more}`
+      )}`
+    );
+  }
+  return c.redirect(`/admin/chapters?tax_ok=${encodeURIComponent(summary)}`);
 });
 
 adminRoutes.get("/admin/chapters/template", (c) => {
