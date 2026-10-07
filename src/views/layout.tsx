@@ -18,7 +18,7 @@ function navFor(role: SessionUser["role"]): { group: string; items: NavItem[] }[
         items: [
           { href: "/admin", label: "Overview", icon: "▦" },
           { href: "/admin/access", label: "Access & Logins", icon: "⚿" },
-          { href: "/admin/reviewers", label: "Reviewers", icon: "☰" },
+          { href: "/admin/access/reviewers", label: "Reviewers", icon: "☰" },
           { href: "/admin/rubrics", label: "Rubrics", icon: "❏" },
         ],
       },
