@@ -9,18 +9,27 @@ import type { Chapter } from "../lib/types";
 
 export const adminRoutes = new Hono<{ Bindings: any; Variables: any }>();
 
+/** Full-access admin only - every mutation route uses this. */
 async function requireAdmin(c: any) {
   const session = c.get("session");
   if (session.role !== "admin") return c.redirect("/");
   return session;
 }
 
+/** Admin or admin_readonly - every view (GET) route uses this. */
+async function requireAdminView(c: any): Promise<{ session: any; canWrite: boolean } | Response> {
+  const session = c.get("session");
+  if (session.role !== "admin" && session.role !== "admin_readonly") return c.redirect("/");
+  return { session, canWrite: session.role === "admin" };
+}
+
 /* ---------------------------------------------------------------------- */
 /* Admin overview                                                         */
 /* ---------------------------------------------------------------------- */
 adminRoutes.get("/admin", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session } = ctx;
   const store = getStore(c);
   const period = await store.getCurrentPeriod();
   const [national, docs, types, college, alumni] = await Promise.all([
@@ -162,8 +171,9 @@ adminRoutes.get("/admin", async (c) => {
 /* Chapters + import                                                      */
 /* ---------------------------------------------------------------------- */
 adminRoutes.get("/admin/chapters", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, canWrite } = ctx;
   const store = getStore(c);
   const q = c.req.query();
   const page = await store.listChapters({
@@ -191,21 +201,27 @@ adminRoutes.get("/admin/chapters", async (c) => {
 
       <div class="grid grid-2">
         <Card title="Import chapter roster">
-          <p class="muted small">
-            Upload a CSV with columns: <span class="mono">chapter_key, chapter_name, chapter_type,
-            university, district, region, status</span>. Type accepts collegiate/college or
-            alumni. Rows missing district/region are flagged, not silently dropped.
-          </p>
-          <form method="post" action="/admin/chapters/import" enctype="multipart/form-data" class="stack">
-            <label class="field">
-              <span>Chapter CSV</span>
-              <input type="file" name="file" accept=".csv,text/csv" required />
-            </label>
-            <button class="btn gold" type="submit">Import chapters</button>
-          </form>
-          <p class="tiny muted" style="margin-top:10px;">
-            Ongoing sync from an existing fraternity system is a planned integration.
-          </p>
+          {canWrite ? (
+            <>
+              <p class="muted small">
+                Upload a CSV with columns: <span class="mono">chapter_key, chapter_name, chapter_type,
+                university, district, region, status</span>. Type accepts collegiate/college or
+                alumni. Rows missing district/region are flagged, not silently dropped.
+              </p>
+              <form method="post" action="/admin/chapters/import" enctype="multipart/form-data" class="stack">
+                <label class="field">
+                  <span>Chapter CSV</span>
+                  <input type="file" name="file" accept=".csv,text/csv" required />
+                </label>
+                <button class="btn gold" type="submit">Import chapters</button>
+              </form>
+              <p class="tiny muted" style="margin-top:10px;">
+                Ongoing sync from an existing fraternity system is a planned integration.
+              </p>
+            </>
+          ) : (
+            <p class="muted small">Read-only access — importing the roster is limited to full admins.</p>
+          )}
         </Card>
 
         <Card title="Roster">
@@ -376,8 +392,8 @@ adminRoutes.get("/admin/chapters/template", (c) => {
 });
 
 adminRoutes.get("/admin/chapters/export", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
   const store = getStore(c);
   const page = await store.listChapters({ limit: 10000, offset: 0 });
   const csv = toCsv(
@@ -399,8 +415,9 @@ adminRoutes.get("/admin/chapters/export", async (c) => {
 /* Reviewers                                                              */
 /* ---------------------------------------------------------------------- */
 adminRoutes.get("/admin/reviewers", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, canWrite } = ctx;
   const store = getStore(c);
   const [dds, rvps] = await Promise.all([
     store.listProfilesByRole("district_director"),
@@ -413,40 +430,46 @@ adminRoutes.get("/admin/reviewers", async (c) => {
         title="Reviewers"
         lede="District Directors and Regional Vice Presidents who review chapter submissions in parallel."
       />
-      <Card title="Create reviewer account">
+      {canWrite ? (
+        <Card title="Create reviewer account">
+          <Callout tone="blue">
+            In production this sends a Supabase invite email so the reviewer sets their own password.
+            Requires the service-role key to be configured. Nothing here handles passwords directly.
+          </Callout>
+          <form method="post" action="/admin/reviewers/invite" class="grid grid-3" style="margin-top:12px;">
+            <label class="field">
+              <span>Full name</span>
+              <input type="text" name="full_name" />
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="email" required />
+            </label>
+            <label class="field">
+              <span>Role</span>
+              <select name="role">
+                <option value="district_director">District Director</option>
+                <option value="rvp">Regional Vice President</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>District (for DD)</span>
+              <input type="text" name="district" />
+            </label>
+            <label class="field">
+              <span>Region (for RVP)</span>
+              <input type="text" name="region" />
+            </label>
+            <div class="row" style="align-items:flex-end;">
+              <button class="btn gold" type="submit">Send invite</button>
+            </div>
+          </form>
+        </Card>
+      ) : (
         <Callout tone="blue">
-          In production this sends a Supabase invite email so the reviewer sets their own password.
-          Requires the service-role key to be configured. Nothing here handles passwords directly.
+          You have read-only access. Creating reviewer accounts is limited to full admins.
         </Callout>
-        <form method="post" action="/admin/reviewers/invite" class="grid grid-3" style="margin-top:12px;">
-          <label class="field">
-            <span>Full name</span>
-            <input type="text" name="full_name" />
-          </label>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" name="email" required />
-          </label>
-          <label class="field">
-            <span>Role</span>
-            <select name="role">
-              <option value="district_director">District Director</option>
-              <option value="rvp">Regional Vice President</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>District (for DD)</span>
-            <input type="text" name="district" />
-          </label>
-          <label class="field">
-            <span>Region (for RVP)</span>
-            <input type="text" name="region" />
-          </label>
-          <div class="row" style="align-items:flex-end;">
-            <button class="btn gold" type="submit">Send invite</button>
-          </div>
-        </form>
-      </Card>
+      )}
 
       <div class="grid grid-2" style="margin-top:16px;">
         <Card title={`District Directors (${dds.length})`}>
@@ -519,8 +542,9 @@ adminRoutes.post("/admin/reviewers/invite", async (c) => {
 /* Rubrics                                                                */
 /* ---------------------------------------------------------------------- */
 adminRoutes.get("/admin/rubrics", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session } = ctx;
   const store = getStore(c);
   const [college, alumni] = await Promise.all([
     store.getRubricForType("collegiate"),
@@ -585,8 +609,9 @@ adminRoutes.get("/admin/rubrics", async (c) => {
 /* Reporting windows                                                      */
 /* ---------------------------------------------------------------------- */
 adminRoutes.get("/admin/windows", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, canWrite } = ctx;
   const store = getStore(c);
   const period = await store.getCurrentPeriod();
 
@@ -602,34 +627,40 @@ adminRoutes.get("/admin/windows", async (c) => {
           />
         </Card>
         <Card title="Open a window">
-          <Callout tone="blue">
-            The portal uses the most recent active window as the current period. If none is
-            configured it falls back to a calendar default so chapters can still report.
-          </Callout>
-          <form method="post" action="/admin/windows/create" class="grid grid-2" style="margin-top:12px;">
-            <label class="field">
-              <span>Term</span>
-              <select name="term">
-                <option value="fall">Fall</option>
-                <option value="spring">Spring</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Year</span>
-              <input type="number" name="year" value={period.reportingYear} />
-            </label>
-            <label class="field">
-              <span>Opens</span>
-              <input type="date" name="opens" />
-            </label>
-            <label class="field">
-              <span>Closes</span>
-              <input type="date" name="closes" />
-            </label>
-            <div class="row" style="grid-column:1/-1;">
-              <button class="btn gold" type="submit">Create window</button>
-            </div>
-          </form>
+          {canWrite ? (
+            <>
+              <Callout tone="blue">
+                The portal uses the most recent active window as the current period. If none is
+                configured it falls back to a calendar default so chapters can still report.
+              </Callout>
+              <form method="post" action="/admin/windows/create" class="grid grid-2" style="margin-top:12px;">
+                <label class="field">
+                  <span>Term</span>
+                  <select name="term">
+                    <option value="fall">Fall</option>
+                    <option value="spring">Spring</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Year</span>
+                  <input type="number" name="year" value={period.reportingYear} />
+                </label>
+                <label class="field">
+                  <span>Opens</span>
+                  <input type="date" name="opens" />
+                </label>
+                <label class="field">
+                  <span>Closes</span>
+                  <input type="date" name="closes" />
+                </label>
+                <div class="row" style="grid-column:1/-1;">
+                  <button class="btn gold" type="submit">Create window</button>
+                </div>
+              </form>
+            </>
+          ) : (
+            <p class="muted small">Read-only access — opening a window is limited to full admins.</p>
+          )}
         </Card>
       </div>
     </>

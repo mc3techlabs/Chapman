@@ -3,4 +3,5 @@ chapter,Chapter User,1
 district_director,District Director,2
 rvp,Regional Vice President,3
 executive_director,Executive Director,4
-admin,Admin,5
+admin,Admin (Full access),5
+admin_readonly,Admin (Read-only),6

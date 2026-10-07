@@ -58,7 +58,8 @@ export const ROLE_LABELS: Record<RoleCode, string> = {
   district_director: "District Director",
   rvp: "Regional Vice President",
   executive_director: "Executive Director",
-  admin: "System Admin",
+  admin: "Admin (Full access)",
+  admin_readonly: "Admin (Read-only)",
 };
 
 export const ROLE_HOME: Record<RoleCode, string> = {
@@ -67,6 +68,7 @@ export const ROLE_HOME: Record<RoleCode, string> = {
   rvp: "/region",
   executive_director: "/national",
   admin: "/admin",
+  admin_readonly: "/admin",
 };
 
 export const TERM_LABELS: Record<TermCode, string> = {

@@ -12,7 +12,9 @@ export const rollupRoutes = new Hono<{ Bindings: any; Variables: any }>();
 /* ---------------------------------------------------------------------- */
 async function renderRollups(c: any, view: "admin" | "executive") {
   const session = c.get("session");
-  if (view === "admin" && session.role !== "admin") return c.redirect("/");
+  if (view === "admin" && session.role !== "admin" && session.role !== "admin_readonly") {
+    return c.redirect("/");
+  }
   if (view === "executive" && session.role !== "executive_director") return c.redirect("/");
 
   const store = getStore(c);
@@ -162,7 +164,9 @@ async function renderRollups(c: any, view: "admin" | "executive") {
 rollupRoutes.get("/rollups/export", async (c) => {
   const session = c.get("session");
   const view = c.req.query("view") ?? "admin";
-  if (view === "admin" && session.role !== "admin") return c.redirect("/");
+  if (view === "admin" && session.role !== "admin" && session.role !== "admin_readonly") {
+    return c.redirect("/");
+  }
   if (view === "executive" && session.role !== "executive_director") return c.redirect("/");
 
   const store = getStore(c);

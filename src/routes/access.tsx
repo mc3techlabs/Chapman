@@ -24,12 +24,34 @@ export const accessRoutes = new Hono<{ Bindings: any; Variables: any }>();
 const SCOPE_LABEL = "Chapter logins are one shared account per chapter.";
 
 /** Admin guard + service-role client. Returns a Response when it should bail. */
+/** Full-access admin only - every mutation route uses this. */
 async function requireAdmin(c: any): Promise<{ session: any; admin: any } | Response> {
   const session = c.get("session");
   if (!session || session.role !== "admin") {
     return c.redirect("/");
   }
   return { session, admin: getAdminClient((c.env ?? {}) as any) };
+}
+
+/**
+ * Admin or admin_readonly - every view (GET) route uses this. canWrite tells
+ * the page whether to render invite forms / reset / deactivate / provision
+ * controls at all; every POST route is still gated by requireAdmin above
+ * regardless of what the page renders, so a read-only admin can't reach a
+ * mutation by posting directly even if the UI were somehow bypassed.
+ */
+async function requireAdminView(
+  c: any
+): Promise<{ session: any; admin: any; canWrite: boolean } | Response> {
+  const session = c.get("session");
+  if (!session || (session.role !== "admin" && session.role !== "admin_readonly")) {
+    return c.redirect("/");
+  }
+  return {
+    session,
+    admin: getAdminClient((c.env ?? {}) as any),
+    canWrite: session.role === "admin",
+  };
 }
 
 function b64(str: string): string {
@@ -166,15 +188,16 @@ async function renderSingleCreds(
 /* Overview                                                                 */
 /* ======================================================================== */
 accessRoutes.get("/admin/access", async (c) => {
-  const ctx = await requireAdmin(c);
+  const ctx = await requireAdminView(c);
   if (ctx instanceof Response) return ctx;
-  const { session, admin } = ctx;
+  const { session, admin, canWrite } = ctx;
   const store = getStore(c);
 
-  const [dds, rvps, admins] = await Promise.all([
+  const [dds, rvps, admins, viewers] = await Promise.all([
     store.listProfilesByRole("district_director"),
     store.listProfilesByRole("rvp"),
     store.listProfilesByRole("admin"),
+    store.listProfilesByRole("admin_readonly"),
   ]);
   const chapterCount = (await scopeChapters(store, {})).length;
 
@@ -192,6 +215,12 @@ accessRoutes.get("/admin/access", async (c) => {
         title="Access & Logins"
         lede="Issue and manage logins for chapters, District Directors and Regional Vice Presidents."
       />
+      {!canWrite ? (
+        <Callout tone="blue">
+          You have read-only access. You can see everything here, but inviting, resetting, and
+          deactivating accounts is limited to full admins.
+        </Callout>
+      ) : null}
       {!admin ? (
         <Callout tone="red">
           Provisioning needs the live database. <span class="mono">SUPABASE_SERVICE_ROLE_KEY</span>{" "}
@@ -204,7 +233,7 @@ accessRoutes.get("/admin/access", async (c) => {
         <Kpi label="Chapter logins issued" value={fmtNumber(provisioned)} tone="green" />
         <Kpi label="District Directors" value={fmtNumber(dds.length)} tone="blue" />
         <Kpi label="Regional VPs" value={fmtNumber(rvps.length)} tone="blue" />
-        <Kpi label="Admins" value={fmtNumber(admins.length)} tone="blue" />
+        <Kpi label="Admins" value={fmtNumber(admins.length + viewers.length)} tone="blue" />
       </div>
 
       <div class="grid grid-3" style="margin-top:16px;">
@@ -260,9 +289,9 @@ accessRoutes.get("/admin/access", async (c) => {
 /* Chapter logins                                                           */
 /* ======================================================================== */
 accessRoutes.get("/admin/access/chapters", async (c) => {
-  const ctx = await requireAdmin(c);
+  const ctx = await requireAdminView(c);
   if (ctx instanceof Response) return ctx;
-  const { session, admin } = ctx;
+  const { session, admin, canWrite } = ctx;
   const store = getStore(c);
   const { regions, districts } = await store.listOrgUnits();
 
@@ -333,26 +362,32 @@ accessRoutes.get("/admin/access/chapters", async (c) => {
 
       <div class="grid grid-2" style="margin-top:16px;">
         <Card title="Bulk provision">
-          <p class="muted small">
-            Creates logins for chapters in the scope above that don't have one yet. Existing logins
-            are skipped, so running it again continues where it left off.
-          </p>
-          <Callout tone="blue">
-            Supabase limits how much work one request can do, so logins are created in batches.
-            After each batch you'll get a credentials sheet and a button for the next batch.
-          </Callout>
-          <form method="post" action="/admin/access/chapters/provision" class="stack" style="margin-top:12px;">
-            <input type="hidden" name="region" value={region} />
-            <input type="hidden" name="district" value={district} />
-            <label class="field">
-              <span>Batch size (chapters per run)</span>
-              <input type="number" name="batch" value={admin ? "100" : "0"} min="1" max="300" />
-            </label>
-            <button class="btn gold" type="submit" disabled={!admin || remaining === 0}>
-              {remaining === 0 ? "All chapters have logins" : `Provision up to batch size (${remaining} remaining)`}
-            </button>
-          </form>
-          {!admin ? <p class="tiny muted">Connect the live database to enable provisioning.</p> : null}
+          {canWrite ? (
+            <>
+              <p class="muted small">
+                Creates logins for chapters in the scope above that don't have one yet. Existing logins
+                are skipped, so running it again continues where it left off.
+              </p>
+              <Callout tone="blue">
+                Supabase limits how much work one request can do, so logins are created in batches.
+                After each batch you'll get a credentials sheet and a button for the next batch.
+              </Callout>
+              <form method="post" action="/admin/access/chapters/provision" class="stack" style="margin-top:12px;">
+                <input type="hidden" name="region" value={region} />
+                <input type="hidden" name="district" value={district} />
+                <label class="field">
+                  <span>Batch size (chapters per run)</span>
+                  <input type="number" name="batch" value={admin ? "100" : "0"} min="1" max="300" />
+                </label>
+                <button class="btn gold" type="submit" disabled={!admin || remaining === 0}>
+                  {remaining === 0 ? "All chapters have logins" : `Provision up to batch size (${remaining} remaining)`}
+                </button>
+              </form>
+              {!admin ? <p class="tiny muted">Connect the live database to enable provisioning.</p> : null}
+            </>
+          ) : (
+            <p class="muted small">Read-only access — provisioning is limited to full admins.</p>
+          )}
         </Card>
 
         <Card title="Import from a sheet">
@@ -396,7 +431,7 @@ accessRoutes.get("/admin/access/chapters", async (c) => {
                           <Badge tone={has ? "green" : "amber"}>{has ? "issued" : "missing"}</Badge>
                         </td>
                         <td>
-                          {admin ? (
+                          {canWrite && admin ? (
                             has ? (
                               <form
                                 method="post"
@@ -438,7 +473,7 @@ accessRoutes.get("/admin/access/chapters", async (c) => {
 });
 
 accessRoutes.get("/admin/access/chapters/template", async (c) => {
-  const ctx = await requireAdmin(c);
+  const ctx = await requireAdminView(c);
   if (ctx instanceof Response) return ctx;
   const store = getStore(c);
   const scope = await scopeChapters(store, {});
@@ -594,9 +629,9 @@ accessRoutes.post("/admin/access/chapters/:id/reset", async (c) => {
 /* Reviewers                                                                */
 /* ======================================================================== */
 accessRoutes.get("/admin/access/reviewers", async (c) => {
-  const ctx = await requireAdmin(c);
+  const ctx = await requireAdminView(c);
   if (ctx instanceof Response) return ctx;
-  const { session, admin } = ctx;
+  const { session, admin, canWrite } = ctx;
   const store = getStore(c);
   const [dds, rvps, units] = await Promise.all([
     store.listProfilesByRole("district_director"),
@@ -630,21 +665,25 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
                     <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
                   </td>
                   <td class="row" style="gap:6px;">
-                    <form
-                      method="post"
-                      action={`/admin/access/reviewers/${p.id}/reset`}
-                      onsubmit="return confirm('Send this reviewer a password reset email?')"
-                    >
-                      <button class="btn secondary small" type="submit">
-                        Reset password
-                      </button>
-                    </form>
-                    <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
-                      <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
-                      <button class="btn secondary small" type="submit">
-                        {p.is_active ? "Deactivate" : "Reactivate"}
-                      </button>
-                    </form>
+                    {canWrite ? (
+                      <>
+                        <form
+                          method="post"
+                          action={`/admin/access/reviewers/${p.id}/reset`}
+                          onsubmit="return confirm('Send this reviewer a password reset email?')"
+                        >
+                          <button class="btn secondary small" type="submit">
+                            Reset password
+                          </button>
+                        </form>
+                        <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
+                          <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
+                          <button class="btn secondary small" type="submit">
+                            {p.is_active ? "Deactivate" : "Reactivate"}
+                          </button>
+                        </form>
+                      </>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -671,59 +710,67 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
       />
       {ok ? <Callout tone="green">{decodeURIComponent(ok)}</Callout> : null}
       {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
-      {!admin ? (
+      {!canWrite ? (
+        <Callout tone="blue">
+          You have read-only access. Inviting, resetting, and deactivating reviewers is limited to
+          full admins.
+        </Callout>
+      ) : null}
+      {canWrite && !admin ? (
         <Callout tone="red">
           Inviting reviewers needs the live database (service-role key not configured here).
         </Callout>
       ) : null}
 
-      <Card title="Invite a reviewer">
-        <p class="muted small">
-          Supabase emails an invitation; the reviewer sets their own password. Their review scope is
-          assigned automatically — a District Director is linked to every chapter in their district,
-          an RVP to every chapter in their region.
-        </p>
-        <form method="post" action="/admin/access/reviewers/invite" class="grid grid-3" style="margin-top:12px;">
-          <label class="field">
-            <span>Full name</span>
-            <input type="text" name="full_name" required />
-          </label>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" name="email" required />
-          </label>
-          <label class="field">
-            <span>Role</span>
-            <select name="role">
-              <option value="district_director">District Director</option>
-              <option value="rvp">Regional Vice President</option>
-            </select>
-          </label>
-          <label class="field">
-            <span>District (District Director)</span>
-            <select name="district">
-              <option value="">—</option>
-              {units.districts.map((d: any) => (
-                <option value={d.name}>{d.name}</option>
-              ))}
-            </select>
-          </label>
-          <label class="field">
-            <span>Region (RVP)</span>
-            <select name="region">
-              <option value="">—</option>
-              {units.regions.map((r: any) => (
-                <option value={r.name}>{r.name}</option>
-              ))}
-            </select>
-          </label>
-          <div class="row" style="align-items:flex-end;">
-            <button class="btn gold" type="submit" disabled={!admin}>
-              Send invite
-            </button>
-          </div>
-        </form>
-      </Card>
+      {canWrite ? (
+        <Card title="Invite a reviewer">
+          <p class="muted small">
+            Supabase emails an invitation; the reviewer sets their own password. Their review scope is
+            assigned automatically — a District Director is linked to every chapter in their district,
+            an RVP to every chapter in their region.
+          </p>
+          <form method="post" action="/admin/access/reviewers/invite" class="grid grid-3" style="margin-top:12px;">
+            <label class="field">
+              <span>Full name</span>
+              <input type="text" name="full_name" required />
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="email" required />
+            </label>
+            <label class="field">
+              <span>Role</span>
+              <select name="role">
+                <option value="district_director">District Director</option>
+                <option value="rvp">Regional Vice President</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>District (District Director)</span>
+              <select name="district">
+                <option value="">—</option>
+                {units.districts.map((d: any) => (
+                  <option value={d.name}>{d.name}</option>
+                ))}
+              </select>
+            </label>
+            <label class="field">
+              <span>Region (RVP)</span>
+              <select name="region">
+                <option value="">—</option>
+                {units.regions.map((r: any) => (
+                  <option value={r.name}>{r.name}</option>
+                ))}
+              </select>
+            </label>
+            <div class="row" style="align-items:flex-end;">
+              <button class="btn gold" type="submit" disabled={!admin}>
+                Send invite
+              </button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
 
       <div style="margin-top:16px;">{rowsFor(dds, "District Directors")}</div>
       <div style="margin-top:16px;">{rowsFor(rvps, "Regional Vice Presidents")}</div>
@@ -800,11 +847,17 @@ accessRoutes.post("/admin/access/reviewers/:id/active", async (c) => {
 /* Admins                                                                   */
 /* ======================================================================== */
 accessRoutes.get("/admin/access/admins", async (c) => {
-  const ctx = await requireAdmin(c);
+  const ctx = await requireAdminView(c);
   if (ctx instanceof Response) return ctx;
-  const { session, admin } = ctx;
+  const { session, admin, canWrite } = ctx;
   const store = getStore(c);
-  const admins = await store.listProfilesByRole("admin");
+  const [fullAdmins, readonlyAdmins] = await Promise.all([
+    store.listProfilesByRole("admin"),
+    store.listProfilesByRole("admin_readonly"),
+  ]);
+  const admins = [...fullAdmins, ...readonlyAdmins].sort((a: any, b: any) =>
+    (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")
+  );
 
   const ok = c.req.query("ok");
   const err = c.req.query("err");
@@ -822,34 +875,50 @@ accessRoutes.get("/admin/access/admins", async (c) => {
       />
       {ok ? <Callout tone="green">{decodeURIComponent(ok)}</Callout> : null}
       {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
-      {!admin ? (
+      {!canWrite ? (
+        <Callout tone="blue">
+          You have read-only access. Inviting, resetting, and deactivating admins is limited to
+          full admins.
+        </Callout>
+      ) : null}
+      {canWrite && !admin ? (
         <Callout tone="red">
           Inviting admins needs the live database (service-role key not configured here).
         </Callout>
       ) : null}
 
-      <Card title="Invite an admin">
-        <p class="muted small">
-          Supabase emails an invitation; the new admin sets their own password. Give this only to
-          people who should have full access — an admin can manage every chapter, reviewer, and
-          other admin account.
-        </p>
-        <form method="post" action="/admin/access/admins/invite" class="grid grid-3" style="margin-top:12px;">
-          <label class="field">
-            <span>Full name</span>
-            <input type="text" name="full_name" required />
-          </label>
-          <label class="field">
-            <span>Email</span>
-            <input type="email" name="email" required />
-          </label>
-          <div class="row" style="align-items:flex-end;">
-            <button class="btn gold" type="submit" disabled={!admin}>
-              Send invite
-            </button>
-          </div>
-        </form>
-      </Card>
+      {canWrite ? (
+        <Card title="Invite an admin">
+          <p class="muted small">
+            Supabase emails an invitation; the new admin sets their own password. <strong>Full
+            access</strong> can manage every chapter, reviewer, and other admin account.{" "}
+            <strong>Read-only</strong> can view everything here but change nothing — invite, reset,
+            deactivate, provisioning, imports and uploads are all unavailable to them.
+          </p>
+          <form method="post" action="/admin/access/admins/invite" class="grid grid-3" style="margin-top:12px;">
+            <label class="field">
+              <span>Full name</span>
+              <input type="text" name="full_name" required />
+            </label>
+            <label class="field">
+              <span>Email</span>
+              <input type="email" name="email" required />
+            </label>
+            <label class="field">
+              <span>Access level</span>
+              <select name="role">
+                <option value="admin">Full access</option>
+                <option value="admin_readonly">Read-only</option>
+              </select>
+            </label>
+            <div class="row" style="align-items:flex-end;">
+              <button class="btn gold" type="submit" disabled={!admin}>
+                Send invite
+              </button>
+            </div>
+          </form>
+        </Card>
+      ) : null}
 
       <div style="margin-top:16px;">
         <Card title={`Admins (${admins.length})`}>
@@ -862,13 +931,15 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                   <tr>
                     <th>Name</th>
                     <th>Email</th>
+                    <th>Access level</th>
                     <th>Active</th>
-                    <th></th>
+                    {canWrite ? <th></th> : null}
                   </tr>
                 </thead>
                 <tbody>
                   {admins.map((p: any) => {
                     const isSelf = p.id === session.profileId;
+                    const isReadonly = p.role_code === "admin_readonly";
                     return (
                       <tr>
                         <td>
@@ -877,37 +948,44 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                         </td>
                         <td class="mono tiny">{p.email}</td>
                         <td>
+                          <Badge tone={isReadonly ? "blue" : "gold"}>
+                            {isReadonly ? "Read-only" : "Full access"}
+                          </Badge>
+                        </td>
+                        <td>
                           <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
                         </td>
-                        <td class="row" style="gap:6px;">
-                          <form
-                            method="post"
-                            action={`/admin/access/admins/${p.id}/reset`}
-                            onsubmit="return confirm('Send this admin a password reset email?')"
-                          >
-                            <button class="btn secondary small" type="submit">
-                              Reset password
-                            </button>
-                          </form>
-                          {!isSelf ? (
+                        {canWrite ? (
+                          <td class="row" style="gap:6px;">
                             <form
                               method="post"
-                              action={`/admin/access/admins/${p.id}/active`}
-                              onsubmit={
-                                p.is_active
-                                  ? "return confirm('Remove admin access for this person?')"
-                                  : undefined
-                              }
+                              action={`/admin/access/admins/${p.id}/reset`}
+                              onsubmit="return confirm('Send this admin a password reset email?')"
                             >
-                              <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
                               <button class="btn secondary small" type="submit">
-                                {p.is_active ? "Deactivate" : "Reactivate"}
+                                Reset password
                               </button>
                             </form>
-                          ) : (
-                            <span class="tiny muted">Can't deactivate your own account</span>
-                          )}
-                        </td>
+                            {!isSelf ? (
+                              <form
+                                method="post"
+                                action={`/admin/access/admins/${p.id}/active`}
+                                onsubmit={
+                                  p.is_active
+                                    ? "return confirm('Remove admin access for this person?')"
+                                    : undefined
+                                }
+                              >
+                                <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
+                                <button class="btn secondary small" type="submit">
+                                  {p.is_active ? "Deactivate" : "Reactivate"}
+                                </button>
+                              </form>
+                            ) : (
+                              <span class="tiny muted">Can't deactivate your own account</span>
+                            )}
+                          </td>
+                        ) : null}
                       </tr>
                     );
                   })}
@@ -930,13 +1008,16 @@ accessRoutes.post("/admin/access/admins/invite", async (c) => {
   const form = await c.req.formData();
   const email = String(form.get("email") ?? "").trim();
   const fullName = String(form.get("full_name") ?? "").trim();
+  const roleInput = String(form.get("role") ?? "admin");
+  const role = roleInput === "admin_readonly" ? "admin_readonly" : "admin";
   const origin = new URL(c.req.url).origin;
 
-  const res = await createAdminAccount(admin, { email, fullName, origin });
+  const res = await createAdminAccount(admin, { email, fullName, origin, role });
   if (!res.ok) {
     return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Invite failed")}`);
   }
-  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Invite sent to ${email}.`)}`);
+  const levelNote = role === "admin_readonly" ? " (read-only)" : " (full access)";
+  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Invite sent to ${email}${levelNote}.`)}`);
 });
 
 accessRoutes.post("/admin/access/admins/:id/reset", async (c) => {

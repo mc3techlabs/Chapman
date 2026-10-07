@@ -11,7 +11,7 @@ interface NavItem {
 
 function navFor(role: SessionUser["role"]): { group: string; items: NavItem[] }[] {
   const common: NavItem[] = [];
-  if (role === "admin") {
+  if (role === "admin" || role === "admin_readonly") {
     return [
       {
         group: "Administration",
@@ -158,7 +158,10 @@ export const DemoBanner: FC<{
       </span>
       <form method="post" action="/demo/persona" class="row" style="gap:6px;">
         <select name="persona" onchange="this.form.submit()">
-          <option value="admin" selected={persona === "admin" || !persona}>Admin</option>
+          <option value="admin" selected={persona === "admin" || !persona}>Admin (Full access)</option>
+          <option value="admin_readonly" selected={persona === "admin_readonly"}>
+            Admin (Read-only)
+          </option>
           <option value="executive_director" selected={persona === "executive_director"}>
             Executive Director
           </option>

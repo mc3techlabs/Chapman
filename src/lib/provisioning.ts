@@ -304,11 +304,12 @@ export async function createReviewerAccount(
  */
 export async function createAdminAccount(
   admin: SupabaseClient,
-  input: { email: string; fullName: string; origin: string }
+  input: { email: string; fullName: string; origin: string; role?: "admin" | "admin_readonly" }
 ): Promise<{ ok: boolean; userId?: string; email: string; message?: string }> {
   const email = input.email.toLowerCase().trim();
+  const role = input.role ?? "admin";
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { role_code: "admin", full_name: input.fullName },
+    data: { role_code: role, full_name: input.fullName },
     redirectTo: `${input.origin}/auth/accept`,
   });
   if (error) return { ok: false, email, message: error.message };
@@ -318,7 +319,7 @@ export async function createAdminAccount(
   // Belt-and-suspenders, matching createReviewerAccount: the on_auth_user_created
   // trigger already sets role_code from the invite metadata, this just
   // guarantees it even if the trigger's metadata read ever changes.
-  await setProfileScope(admin, userId, { role: "admin" });
+  await setProfileScope(admin, userId, { role });
   return { ok: true, userId, email };
 }
 

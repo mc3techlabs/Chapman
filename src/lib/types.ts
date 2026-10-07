@@ -8,7 +8,8 @@ export type RoleCode =
   | "district_director"
   | "rvp"
   | "executive_director"
-  | "admin";
+  | "admin"
+  | "admin_readonly";
 
 export type TermCode = "fall" | "spring";
 

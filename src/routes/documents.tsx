@@ -29,16 +29,25 @@ const CATEGORY_META: Record<
   },
 };
 
+/** Full-access admin only - the upload route uses this. */
 async function requireAdmin(c: any) {
   const session = c.get("session");
   if (session.role !== "admin") return c.redirect("/");
   return session;
 }
 
+/** Admin or admin_readonly - viewing and downloading use this. */
+async function requireAdminView(c: any): Promise<{ session: any; canWrite: boolean } | Response> {
+  const session = c.get("session");
+  if (session.role !== "admin" && session.role !== "admin_readonly") return c.redirect("/");
+  return { session, canWrite: session.role === "admin" };
+}
+
 /** Shared renderer for a document category page (tax / special event). */
 async function renderCategory(c: any, category: Category) {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, canWrite } = ctx;
   const store = getStore(c);
   const meta = CATEGORY_META[category];
   const [types, docs, chapters] = await Promise.all([
@@ -92,42 +101,46 @@ async function renderCategory(c: any, category: Category) {
               <span class="pill mono tiny">{t.allowed_extensions.join(", ")}</span>
               <span class="pill tiny">max {t.max_size_mb} MB</span>
             </div>
-            <form
-              method="post"
-              action="/documents/upload"
-              enctype="multipart/form-data"
-              class="stack"
-            >
-              <input type="hidden" name="documentTypeCode" value={t.code} />
-              <input type="hidden" name="category" value={category} />
-              <label class="field">
-                <span>Chapter</span>
-                <select name="chapterId" required>
-                  <option value="">Select a chapter…</option>
-                  {chapters.rows.map((ch: any) => (
-                    <option value={ch.id}>
-                      {ch.chapter_name} ({ch.chapter_key})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label class="field">
-                <span>File</span>
-                <input
-                  type="file"
-                  name="file"
-                  accept={t.allowed_extensions.map((e) => `.${e}`).join(",")}
-                  required
-                />
-              </label>
-              <label class="field">
-                <span>Notes (optional)</span>
-                <input type="text" name="notes" placeholder="Filing year, reference, etc." />
-              </label>
-              <button class="btn gold" type="submit">
-                Upload {t.label}
-              </button>
-            </form>
+            {canWrite ? (
+              <form
+                method="post"
+                action="/documents/upload"
+                enctype="multipart/form-data"
+                class="stack"
+              >
+                <input type="hidden" name="documentTypeCode" value={t.code} />
+                <input type="hidden" name="category" value={category} />
+                <label class="field">
+                  <span>Chapter</span>
+                  <select name="chapterId" required>
+                    <option value="">Select a chapter…</option>
+                    {chapters.rows.map((ch: any) => (
+                      <option value={ch.id}>
+                        {ch.chapter_name} ({ch.chapter_key})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label class="field">
+                  <span>File</span>
+                  <input
+                    type="file"
+                    name="file"
+                    accept={t.allowed_extensions.map((e) => `.${e}`).join(",")}
+                    required
+                  />
+                </label>
+                <label class="field">
+                  <span>Notes (optional)</span>
+                  <input type="text" name="notes" placeholder="Filing year, reference, etc." />
+                </label>
+                <button class="btn gold" type="submit">
+                  Upload {t.label}
+                </button>
+              </form>
+            ) : (
+              <p class="muted small">Read-only access — uploading is limited to full admins.</p>
+            )}
           </Card>
         ))}
         {catTypes.length === 0 ? (
@@ -274,8 +287,8 @@ documentsRoutes.post("/documents/upload", async (c) => {
 /* Download (signed URL in production)                                    */
 /* ---------------------------------------------------------------------- */
 documentsRoutes.get("/documents/:id/download", async (c) => {
-  const session = await requireAdmin(c);
-  if (session instanceof Response) return session;
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
   const id = c.req.param("id");
   const admin = getAdminClient((c.env ?? {}) as any);
   const bucket = ((c.env ?? {}) as any).DOCUMENTS_BUCKET || "chapman-documents";

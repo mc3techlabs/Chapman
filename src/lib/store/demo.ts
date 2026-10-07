@@ -233,16 +233,19 @@ const PROFILES: Record<RoleCode, { id: string; name: string; email: string }> = 
   district_director: { id: "demo-dd", name: "District Director", email: "dd@demo" },
   rvp: { id: "demo-rvp", name: "Regional Vice President", email: "rvp@demo" },
   executive_director: { id: "demo-ed", name: "Executive Director", email: "ed@demo" },
-  admin: { id: "demo-admin", name: "System Admin", email: "admin@demo" },
+  admin: { id: "demo-admin", name: "Admin (Full access)", email: "admin@demo" },
+  admin_readonly: { id: "demo-admin-readonly", name: "Admin (Read-only)", email: "admin-readonly@demo" },
 };
 
 function parseDemoCookie(cookieValue: string | undefined): SessionUser {
   const firstActiveCollege = chapters.find((c) => c.chapter_type_code === "collegiate") ?? chapters[0];
   const value = cookieValue || "admin";
   const [roleRaw, scopeRaw] = value.split(":");
-  const role = (["chapter", "district_director", "rvp", "executive_director", "admin"].includes(roleRaw)
-    ? roleRaw
-    : "admin") as RoleCode;
+  const role = (
+    ["chapter", "district_director", "rvp", "executive_director", "admin", "admin_readonly"].includes(roleRaw)
+      ? roleRaw
+      : "admin"
+  ) as RoleCode;
 
   let chapterIds: string[] = [];
   let district: string | null = null;
