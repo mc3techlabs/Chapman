@@ -484,6 +484,12 @@ export function createDemoStore(cookie: string | undefined): Store {
       s.submitted_at = new Date().toISOString();
     },
 
+    async withdrawSubmission(submissionId) {
+      const s = submissionById(submissionId);
+      if (!s) return;
+      s.workflow_status = "draft";
+    },
+
     async listReviewQueue(role, period) {
       const pool = scopedSubmissions().filter(
         (s) => s.term_code === period.termCode && s.reporting_year === period.reportingYear

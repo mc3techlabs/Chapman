@@ -220,6 +220,10 @@ chapterRoutes.get("/chapter/submission", async (c) => {
   const allItems = rubric.sections.flatMap((s) => s.subsections.flatMap((ss) => ss.items));
   const summary = summarize(allItems);
   const editable = ["draft", "returned"].includes(submission.workflow_status);
+  const canWithdraw =
+    submission.workflow_status === "submitted" &&
+    submission.district_review_status === "pending" &&
+    submission.regional_review_status === "pending";
 
   const body = (
     <>
@@ -263,12 +267,29 @@ chapterRoutes.get("/chapter/submission", async (c) => {
               variant="gold"
               confirm="Submit this report for District and Regional review? You won't be able to edit until it's reviewed."
             />
+          ) : canWithdraw ? (
+            <div class="row" style="gap:10px;align-items:center;">
+              <Badge tone="blue">Submitted — awaiting a reviewer</Badge>
+              <ActionButton
+                action="/chapter/submission/withdraw"
+                hidden={{ submissionId: submission.id }}
+                label="Withdraw submission"
+                variant="secondary"
+                confirm="Pull this report back to draft so you can edit it? You'll need to submit it again when you're done."
+              />
+            </div>
           ) : (
             <Badge tone="blue">
               Locked — {reviewLabel(submission.district_review_status)} by reviewers
             </Badge>
           )}
         </div>
+        {canWithdraw ? (
+          <p class="tiny muted" style="margin-top:10px;">
+            No reviewer has acted on this yet, so you can still pull it back and make changes.
+            Once a District Director or RVP responds, this option goes away.
+          </p>
+        ) : null}
         <div style="margin-top:12px;">
           <Callout>
             <strong>Yes = 1</strong> · <strong>No = 0</strong> ·{" "}
@@ -359,6 +380,31 @@ chapterRoutes.post("/chapter/submission/submit", async (c) => {
     await store.submitReport(submissionId);
   }
   return c.redirect("/chapter");
+});
+
+/**
+ * Lets a chapter pull its own report back to draft after submitting it,
+ * but only while neither reviewer has acted yet - the UI already hides
+ * this once either lane leaves "pending" (app/chapter dashboards' isEditable-
+ * style gating), but this is the real guard, matching what RLS + the
+ * enforce_submission_transition trigger (0007) now enforce server-side.
+ */
+chapterRoutes.post("/chapter/submission/withdraw", async (c) => {
+  const ctx = await requireChapter(c);
+  if (ctx instanceof Response) return ctx;
+  const form = await c.req.formData();
+  const submissionId = String(form.get("submissionId"));
+  const store = getStore(c);
+  const submission = await store.getSubmission(submissionId);
+  if (
+    submission &&
+    submission.workflow_status === "submitted" &&
+    submission.district_review_status === "pending" &&
+    submission.regional_review_status === "pending"
+  ) {
+    await store.withdrawSubmission(submissionId);
+  }
+  return c.redirect("/chapter/submission");
 });
 
 /* ---------------------------------------------------------------------- */

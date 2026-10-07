@@ -85,6 +85,8 @@ export interface Store {
     answer: AnswerCode
   ): Promise<void>;
   submitReport(submissionId: string): Promise<void>;
+  /** A chapter withdrawing its own submitted report back to draft - only valid while neither review lane has been acted on yet. */
+  withdrawSubmission(submissionId: string): Promise<void>;
 
   // -- Review queues -------------------------------------------------------
   /** Submissions in a reviewer's lane for a period. */

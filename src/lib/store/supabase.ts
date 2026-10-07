@@ -429,6 +429,12 @@ export function createSupabaseStore(
       await logAction(client, submissionId, "submitted", {}, actorId);
     },
 
+    async withdrawSubmission(submissionId) {
+      const actorId = await currentUserId();
+      await client.from("submissions").update({ workflow_status: "draft" }).eq("id", submissionId);
+      await logAction(client, submissionId, "withdrawn", {}, actorId);
+    },
+
     async listReviewQueue(role, period) {
       let query = client
         .from("submissions")
