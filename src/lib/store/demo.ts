@@ -352,6 +352,17 @@ export function createDemoStore(cookie: string | undefined): Store {
       return ids.map((id) => chapterById.get(id)).filter(Boolean) as Chapter[];
     },
 
+    async getReviewerAssignment(_chapterId) {
+      // Demo mode has one fixed persona per role rather than real per-chapter
+      // assignments - every chapter sees the same demo DD/RVP.
+      const dd = PROFILES.district_director;
+      const rvp = PROFILES.rvp;
+      return {
+        districtDirector: { id: dd.id, full_name: dd.name, email: dd.email },
+        regionalVp: { id: rvp.id, full_name: rvp.name, email: rvp.email },
+      };
+    },
+
     async upsertChapters(rows) {
       let inserted = 0;
       let updated = 0;

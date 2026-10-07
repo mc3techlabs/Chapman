@@ -45,6 +45,7 @@ chapterRoutes.get("/chapter", async (c) => {
   const submission = await store.getOrCreateSubmission(chapter.id, period);
   const history = await store.listSubmissionsForChapter(chapter.id);
   const detail = await store.getSubmissionDetail(submission.id);
+  const reviewers = await store.getReviewerAssignment(chapter.id);
   const summary = detail
     ? summarize(
         detail.rubric.sections.flatMap((s) => s.subsections.flatMap((ss) => ss.items))
@@ -95,6 +96,33 @@ chapterRoutes.get("/chapter", async (c) => {
             </span>
           }
         />
+      </div>
+
+      <div style="margin-top:16px;">
+        <Card title="Your district, region &amp; reviewers">
+          <div class="grid grid-2">
+            <div>
+              <div class="muted tiny">District</div>
+              <div style="font-size:1.1rem;font-weight:700;">{chapter.district}</div>
+            </div>
+            <div>
+              <div class="muted tiny">Region</div>
+              <div style="font-size:1.1rem;font-weight:700;">{chapter.region}</div>
+            </div>
+            <div>
+              <div class="muted tiny">District Director</div>
+              <div style="font-size:1.1rem;font-weight:700;">
+                {reviewers.districtDirector?.full_name || reviewers.districtDirector?.email || "Not yet assigned"}
+              </div>
+            </div>
+            <div>
+              <div class="muted tiny">Regional Vice President</div>
+              <div style="font-size:1.1rem;font-weight:700;">
+                {reviewers.regionalVp?.full_name || reviewers.regionalVp?.email || "Not yet assigned"}
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
 
       <div class="grid grid-2" style="margin-top:16px;">

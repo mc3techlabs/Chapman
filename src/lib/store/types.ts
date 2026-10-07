@@ -13,6 +13,7 @@ import type {
   Profile,
   RegionRollup,
   ReportingPeriod,
+  ReviewerAssignment,
   ReviewStatus,
   RubricTree,
   RubricTreeWithResponses,
@@ -60,6 +61,8 @@ export interface Store {
   getChapter(id: string): Promise<Chapter | null>;
   getChaptersByIds(ids: string[]): Promise<Chapter[]>;
   upsertChapters(rows: Partial<Chapter>[]): Promise<{ inserted: number; updated: number; errors: string[] }>;
+  /** The District Director and RVP assigned to a chapter, for the chapter dashboard. */
+  getReviewerAssignment(chapterId: string): Promise<ReviewerAssignment>;
 
   // -- Rubric --------------------------------------------------------------
   /** Rubric tree for a chapter type (college vs alumni), no responses. */

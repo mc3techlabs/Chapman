@@ -4,8 +4,9 @@
  * password, no network access from the sandbox needed).
  *
  * The script:
- *   1. Applies the five migrations (0001 schema, 0002 RLS, 0003 views, 0004 RLS
- *      write hardening, 0005 admin access levels). They are
+ *   1. Applies the six migrations (0001 schema, 0002 RLS, 0003 views, 0004 RLS
+ *      write hardening, 0005 admin access levels, 0006 chapter reviewer
+ *      visibility). They are
  *      already written with `if not exists` / `create or replace` / `drop ... if exists`,
  *      so running this on a project that already has *some* of the schema only
  *      creates what is missing — it never drops or overwrites your data.
@@ -73,6 +74,7 @@ const schema = [
   readFileSync(resolve(MIG, "0003_reporting_views.sql"), "utf8"),
   readFileSync(resolve(MIG, "0004_rls_write_hardening.sql"), "utf8"),
   readFileSync(resolve(MIG, "0005_admin_access_levels.sql"), "utf8"),
+  readFileSync(resolve(MIG, "0006_chapter_reviewer_visibility.sql"), "utf8"),
 ].join("\n\n");
 
 const gapFix = `-- ===========================================================================

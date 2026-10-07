@@ -258,6 +258,29 @@ export function createSupabaseStore(
       return (data ?? []) as Chapter[];
     },
 
+    async getReviewerAssignment(chapterId) {
+      const empty = { districtDirector: null, regionalVp: null };
+      const { data: ra } = await client
+        .from("reviewer_assignments")
+        .select("district_director_profile_id, regional_vice_president_profile_id")
+        .eq("chapter_id", chapterId)
+        .maybeSingle();
+      if (!ra) return empty;
+      const ddId = (ra as any).district_director_profile_id as string | null;
+      const rvpId = (ra as any).regional_vice_president_profile_id as string | null;
+      const ids = [ddId, rvpId].filter((id): id is string => !!id);
+      if (ids.length === 0) return empty;
+      const { data: profiles } = await client
+        .from("profiles")
+        .select("id, full_name, email")
+        .in("id", ids);
+      const byId = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+      return {
+        districtDirector: ddId ? (byId.get(ddId) ?? null) : null,
+        regionalVp: rvpId ? (byId.get(rvpId) ?? null) : null,
+      };
+    },
+
     async upsertChapters(rows) {
       const errors: string[] = [];
       const clean = rows.filter((r) => {

@@ -102,6 +102,17 @@ export interface Profile {
   is_active: boolean;
 }
 
+export interface ReviewerRef {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+}
+
+export interface ReviewerAssignment {
+  districtDirector: ReviewerRef | null;
+  regionalVp: ReviewerRef | null;
+}
+
 export interface RubricItem {
   id: string;
   rubric_version_id: string;
