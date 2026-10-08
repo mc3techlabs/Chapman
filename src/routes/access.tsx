@@ -13,9 +13,12 @@ import {
   listAllAuthUsers,
   provisionChapterLogin,
   provisionChapterLogins,
+  resendInvite,
   resetChapterLogin,
   resetReviewerPassword,
   setAccountActive,
+  setProfileScope,
+  syncReviewerAssignments,
   type ProvisionResult,
 } from "../lib/provisioning";
 
@@ -639,6 +642,31 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
     store.listOrgUnits(),
   ]);
 
+  // Invites that were sent but never completed (e.g. the link expired)
+  // show as "pending" with a resend action instead of "Reset password",
+  // which only makes sense once the invitee has actually set a password.
+  //
+  // Separately: an invited auth user can end up with NO profile row at all
+  // (the on_auth_user_created trigger only fires on a genuine INSERT into
+  // auth.users - re-inviting an address that already has an unconfirmed
+  // auth user just re-sends the token without inserting a new row, so the
+  // trigger never runs). Those accounts are invisible in the tables below
+  // since they're built from listProfilesByRole, not auth.users - surface
+  // them separately so they aren't just missing.
+  let pendingEmails = new Set<string>();
+  let orphaned: any[] = [];
+  if (admin) {
+    const users = await listAllAuthUsers(admin);
+    pendingEmails = new Set(
+      users.filter((u: any) => !u.email_confirmed_at).map((u: any) => (u.email ?? "").toLowerCase())
+    );
+    const profileIds = new Set([...dds, ...rvps].map((p: any) => p.id));
+    orphaned = users.filter((u: any) => {
+      const rc = u.user_metadata?.role_code;
+      return (rc === "district_director" || rc === "rvp") && !profileIds.has(u.id);
+    });
+  }
+
   const rowsFor = (list: any[], roleLabel: string) => (
     <Card title={`${roleLabel} (${list.length})`}>
       {list.length === 0 ? (
@@ -651,42 +679,61 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Scope</th>
+                <th>Invite</th>
                 <th>Active</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {list.map((p: any) => (
-                <tr>
-                  <td>{p.full_name || "—"}</td>
-                  <td class="mono tiny">{p.email}</td>
-                  <td class="small">{p.district ?? p.region ?? "—"}</td>
-                  <td>
-                    <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
-                  </td>
-                  <td class="row" style="gap:6px;">
-                    {canWrite ? (
-                      <>
-                        <form
-                          method="post"
-                          action={`/admin/access/reviewers/${p.id}/reset`}
-                          onsubmit="return confirm('Send this reviewer a password reset email?')"
-                        >
-                          <button class="btn secondary small" type="submit">
-                            Reset password
-                          </button>
-                        </form>
-                        <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
-                          <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
-                          <button class="btn secondary small" type="submit">
-                            {p.is_active ? "Deactivate" : "Reactivate"}
-                          </button>
-                        </form>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+              {list.map((p: any) => {
+                const pending = pendingEmails.has((p.email ?? "").toLowerCase());
+                return (
+                  <tr>
+                    <td>{p.full_name || "—"}</td>
+                    <td class="mono tiny">{p.email}</td>
+                    <td class="small">{p.district ?? p.region ?? "—"}</td>
+                    <td>
+                      <Badge tone={pending ? "amber" : "green"}>{pending ? "pending" : "confirmed"}</Badge>
+                    </td>
+                    <td>
+                      <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
+                    </td>
+                    <td class="row" style="gap:6px;">
+                      {canWrite ? (
+                        <>
+                          {pending ? (
+                            <form
+                              method="post"
+                              action={`/admin/access/reviewers/${p.id}/resend`}
+                              onsubmit="return confirm('Resend the invite email to this reviewer?')"
+                            >
+                              <button class="btn secondary small" type="submit">
+                                Resend invite
+                              </button>
+                            </form>
+                          ) : (
+                            <form
+                              method="post"
+                              action={`/admin/access/reviewers/${p.id}/reset`}
+                              onsubmit="return confirm('Send this reviewer a password reset email?')"
+                            >
+                              <button class="btn secondary small" type="submit">
+                                Reset password
+                              </button>
+                            </form>
+                          )}
+                          <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
+                            <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
+                            <button class="btn secondary small" type="submit">
+                              {p.is_active ? "Deactivate" : "Reactivate"}
+                            </button>
+                          </form>
+                        </>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -772,6 +819,50 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
         </Card>
       ) : null}
 
+      {orphaned.length ? (
+        <div style="margin-top:16px;">
+          <Card title={`Needs repair (${orphaned.length})`}>
+            <Callout tone="gold">
+              These were invited but never got a profile row, so they don't appear below — a known
+              gap when an invite is re-sent to an address that already has an unconfirmed account.
+              Repairing creates the missing profile and reassigns their review scope.
+            </Callout>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Scope</th>
+                    {canWrite ? <th></th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {orphaned.map((u: any) => (
+                    <tr>
+                      <td class="mono tiny">{u.email}</td>
+                      <td class="small">
+                        {u.user_metadata?.role_code === "rvp" ? "RVP" : "District Director"}
+                      </td>
+                      <td class="small">{u.user_metadata?.district ?? u.user_metadata?.region ?? "—"}</td>
+                      {canWrite ? (
+                        <td>
+                          <form method="post" action={`/admin/access/reviewers/${u.id}/repair`}>
+                            <button class="btn gold small" type="submit">
+                              Repair
+                            </button>
+                          </form>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
       <div style="margin-top:16px;">{rowsFor(dds, "District Directors")}</div>
       <div style="margin-top:16px;">{rowsFor(rvps, "Regional Vice Presidents")}</div>
     </>
@@ -829,6 +920,57 @@ accessRoutes.post("/admin/access/reviewers/:id/reset", async (c) => {
   );
 });
 
+accessRoutes.post("/admin/access/reviewers/:id/resend", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/reviewers?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/reviewers?err=Reviewer%20not%20found");
+  }
+
+  const res = await resendInvite(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/reviewers?err=${encodeURIComponent(res.message ?? "Resend failed")}`);
+  }
+  return c.redirect(`/admin/access/reviewers?ok=${encodeURIComponent(`Invite resent to ${data.user.email}.`)}`);
+});
+
+/** Creates the profile row an invited reviewer never got (see the "Needs repair" card). */
+accessRoutes.post("/admin/access/reviewers/:id/repair", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/reviewers?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/reviewers?err=Account%20not%20found");
+  }
+  const meta = data.user.user_metadata ?? {};
+  const role = meta.role_code === "rvp" ? "rvp" : "district_director";
+  const district = meta.district ?? null;
+  const region = meta.region ?? null;
+
+  const res = await setProfileScope(admin, id, {
+    role,
+    email: data.user.email,
+    fullName: meta.full_name ?? "",
+    district: role === "district_director" ? district : null,
+    region: role === "rvp" ? region : null,
+  });
+  if (!res.ok) {
+    return c.redirect(`/admin/access/reviewers?err=${encodeURIComponent(res.message ?? "Repair failed")}`);
+  }
+  await syncReviewerAssignments(admin, id, role, { district, region });
+  return c.redirect(`/admin/access/reviewers?ok=${encodeURIComponent(`Profile created for ${data.user.email}.`)}`);
+});
+
 accessRoutes.post("/admin/access/reviewers/:id/active", async (c) => {
   const ctx = await requireAdmin(c);
   if (ctx instanceof Response) return ctx;
@@ -858,6 +1000,26 @@ accessRoutes.get("/admin/access/admins", async (c) => {
   const admins = [...fullAdmins, ...readonlyAdmins].sort((a: any, b: any) =>
     (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")
   );
+
+  // Same pending/confirmed distinction as the reviewers page — an admin
+  // whose invite link expired before they finished sign-up needs a resend,
+  // not a password reset. Same orphaned-invite gap too: an auth user with
+  // no matching profile row is invisible in `admins` (built from
+  // listProfilesByRole), so surface it separately instead of it just
+  // disappearing.
+  let pendingEmails = new Set<string>();
+  let orphaned: any[] = [];
+  if (admin) {
+    const users = await listAllAuthUsers(admin);
+    pendingEmails = new Set(
+      users.filter((u: any) => !u.email_confirmed_at).map((u: any) => (u.email ?? "").toLowerCase())
+    );
+    const profileIds = new Set(admins.map((p: any) => p.id));
+    orphaned = users.filter((u: any) => {
+      const rc = u.user_metadata?.role_code;
+      return (rc === "admin" || rc === "admin_readonly") && !profileIds.has(u.id);
+    });
+  }
 
   const ok = c.req.query("ok");
   const err = c.req.query("err");
@@ -920,6 +1082,48 @@ accessRoutes.get("/admin/access/admins", async (c) => {
         </Card>
       ) : null}
 
+      {orphaned.length ? (
+        <div style="margin-top:16px;">
+          <Card title={`Needs repair (${orphaned.length})`}>
+            <Callout tone="gold">
+              These were invited but never got a profile row, so they don't appear below — a known
+              gap when an invite is re-sent to an address that already has an unconfirmed account.
+              Repairing creates the missing profile.
+            </Callout>
+            <div class="table-wrap" style="margin-top:12px;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Access level</th>
+                    {canWrite ? <th></th> : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {orphaned.map((u: any) => (
+                    <tr>
+                      <td class="mono tiny">{u.email}</td>
+                      <td class="small">
+                        {u.user_metadata?.role_code === "admin_readonly" ? "Read-only" : "Full access"}
+                      </td>
+                      {canWrite ? (
+                        <td>
+                          <form method="post" action={`/admin/access/admins/${u.id}/repair`}>
+                            <button class="btn gold small" type="submit">
+                              Repair
+                            </button>
+                          </form>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
       <div style="margin-top:16px;">
         <Card title={`Admins (${admins.length})`}>
           {admins.length === 0 ? (
@@ -932,6 +1136,7 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Access level</th>
+                    <th>Invite</th>
                     <th>Active</th>
                     {canWrite ? <th></th> : null}
                   </tr>
@@ -940,6 +1145,7 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                   {admins.map((p: any) => {
                     const isSelf = p.id === session.profileId;
                     const isReadonly = p.role_code === "admin_readonly";
+                    const pending = pendingEmails.has((p.email ?? "").toLowerCase());
                     return (
                       <tr>
                         <td>
@@ -953,19 +1159,34 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                           </Badge>
                         </td>
                         <td>
+                          <Badge tone={pending ? "amber" : "green"}>{pending ? "pending" : "confirmed"}</Badge>
+                        </td>
+                        <td>
                           <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
                         </td>
                         {canWrite ? (
                           <td class="row" style="gap:6px;">
-                            <form
-                              method="post"
-                              action={`/admin/access/admins/${p.id}/reset`}
-                              onsubmit="return confirm('Send this admin a password reset email?')"
-                            >
-                              <button class="btn secondary small" type="submit">
-                                Reset password
-                              </button>
-                            </form>
+                            {pending ? (
+                              <form
+                                method="post"
+                                action={`/admin/access/admins/${p.id}/resend`}
+                                onsubmit="return confirm('Resend the invite email to this admin?')"
+                              >
+                                <button class="btn secondary small" type="submit">
+                                  Resend invite
+                                </button>
+                              </form>
+                            ) : (
+                              <form
+                                method="post"
+                                action={`/admin/access/admins/${p.id}/reset`}
+                                onsubmit="return confirm('Send this admin a password reset email?')"
+                              >
+                                <button class="btn secondary small" type="submit">
+                                  Reset password
+                                </button>
+                              </form>
+                            )}
                             {!isSelf ? (
                               <form
                                 method="post"
@@ -1040,6 +1261,48 @@ accessRoutes.post("/admin/access/admins/:id/reset", async (c) => {
   return c.redirect(
     `/admin/access/admins?ok=${encodeURIComponent(`Password reset email sent to ${data.user.email}.`)}`
   );
+});
+
+accessRoutes.post("/admin/access/admins/:id/resend", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/admins?err=Admin%20not%20found");
+  }
+
+  const res = await resendInvite(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Resend failed")}`);
+  }
+  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Invite resent to ${data.user.email}.`)}`);
+});
+
+/** Creates the profile row an invited admin never got (see the "Needs repair" card). */
+accessRoutes.post("/admin/access/admins/:id/repair", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/admins?err=Account%20not%20found");
+  }
+  const meta = data.user.user_metadata ?? {};
+  const role = meta.role_code === "admin_readonly" ? "admin_readonly" : "admin";
+
+  const res = await setProfileScope(admin, id, { role, email: data.user.email, fullName: meta.full_name ?? "" });
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Repair failed")}`);
+  }
+  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Profile created for ${data.user.email}.`)}`);
 });
 
 accessRoutes.post("/admin/access/admins/:id/active", async (c) => {
