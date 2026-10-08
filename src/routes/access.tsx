@@ -13,6 +13,7 @@ import {
   listAllAuthUsers,
   provisionChapterLogin,
   provisionChapterLogins,
+  resendInvite,
   resetChapterLogin,
   resetReviewerPassword,
   setAccountActive,
@@ -639,6 +640,17 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
     store.listOrgUnits(),
   ]);
 
+  // Invites that were sent but never completed (e.g. the link expired)
+  // show as "pending" with a resend action instead of "Reset password",
+  // which only makes sense once the invitee has actually set a password.
+  let pendingEmails = new Set<string>();
+  if (admin) {
+    const users = await listAllAuthUsers(admin);
+    pendingEmails = new Set(
+      users.filter((u: any) => !u.email_confirmed_at).map((u: any) => (u.email ?? "").toLowerCase())
+    );
+  }
+
   const rowsFor = (list: any[], roleLabel: string) => (
     <Card title={`${roleLabel} (${list.length})`}>
       {list.length === 0 ? (
@@ -651,42 +663,61 @@ accessRoutes.get("/admin/access/reviewers", async (c) => {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Scope</th>
+                <th>Invite</th>
                 <th>Active</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {list.map((p: any) => (
-                <tr>
-                  <td>{p.full_name || "—"}</td>
-                  <td class="mono tiny">{p.email}</td>
-                  <td class="small">{p.district ?? p.region ?? "—"}</td>
-                  <td>
-                    <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
-                  </td>
-                  <td class="row" style="gap:6px;">
-                    {canWrite ? (
-                      <>
-                        <form
-                          method="post"
-                          action={`/admin/access/reviewers/${p.id}/reset`}
-                          onsubmit="return confirm('Send this reviewer a password reset email?')"
-                        >
-                          <button class="btn secondary small" type="submit">
-                            Reset password
-                          </button>
-                        </form>
-                        <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
-                          <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
-                          <button class="btn secondary small" type="submit">
-                            {p.is_active ? "Deactivate" : "Reactivate"}
-                          </button>
-                        </form>
-                      </>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
+              {list.map((p: any) => {
+                const pending = pendingEmails.has((p.email ?? "").toLowerCase());
+                return (
+                  <tr>
+                    <td>{p.full_name || "—"}</td>
+                    <td class="mono tiny">{p.email}</td>
+                    <td class="small">{p.district ?? p.region ?? "—"}</td>
+                    <td>
+                      <Badge tone={pending ? "amber" : "green"}>{pending ? "pending" : "confirmed"}</Badge>
+                    </td>
+                    <td>
+                      <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
+                    </td>
+                    <td class="row" style="gap:6px;">
+                      {canWrite ? (
+                        <>
+                          {pending ? (
+                            <form
+                              method="post"
+                              action={`/admin/access/reviewers/${p.id}/resend`}
+                              onsubmit="return confirm('Resend the invite email to this reviewer?')"
+                            >
+                              <button class="btn secondary small" type="submit">
+                                Resend invite
+                              </button>
+                            </form>
+                          ) : (
+                            <form
+                              method="post"
+                              action={`/admin/access/reviewers/${p.id}/reset`}
+                              onsubmit="return confirm('Send this reviewer a password reset email?')"
+                            >
+                              <button class="btn secondary small" type="submit">
+                                Reset password
+                              </button>
+                            </form>
+                          )}
+                          <form method="post" action={`/admin/access/reviewers/${p.id}/active`}>
+                            <input type="hidden" name="active" value={p.is_active ? "0" : "1"} />
+                            <button class="btn secondary small" type="submit">
+                              {p.is_active ? "Deactivate" : "Reactivate"}
+                            </button>
+                          </form>
+                        </>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -829,6 +860,26 @@ accessRoutes.post("/admin/access/reviewers/:id/reset", async (c) => {
   );
 });
 
+accessRoutes.post("/admin/access/reviewers/:id/resend", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/reviewers?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/reviewers?err=Reviewer%20not%20found");
+  }
+
+  const res = await resendInvite(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/reviewers?err=${encodeURIComponent(res.message ?? "Resend failed")}`);
+  }
+  return c.redirect(`/admin/access/reviewers?ok=${encodeURIComponent(`Invite resent to ${data.user.email}.`)}`);
+});
+
 accessRoutes.post("/admin/access/reviewers/:id/active", async (c) => {
   const ctx = await requireAdmin(c);
   if (ctx instanceof Response) return ctx;
@@ -858,6 +909,17 @@ accessRoutes.get("/admin/access/admins", async (c) => {
   const admins = [...fullAdmins, ...readonlyAdmins].sort((a: any, b: any) =>
     (a.full_name || a.email || "").localeCompare(b.full_name || b.email || "")
   );
+
+  // Same pending/confirmed distinction as the reviewers page — an admin
+  // whose invite link expired before they finished sign-up needs a resend,
+  // not a password reset.
+  let pendingEmails = new Set<string>();
+  if (admin) {
+    const users = await listAllAuthUsers(admin);
+    pendingEmails = new Set(
+      users.filter((u: any) => !u.email_confirmed_at).map((u: any) => (u.email ?? "").toLowerCase())
+    );
+  }
 
   const ok = c.req.query("ok");
   const err = c.req.query("err");
@@ -932,6 +994,7 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                     <th>Name</th>
                     <th>Email</th>
                     <th>Access level</th>
+                    <th>Invite</th>
                     <th>Active</th>
                     {canWrite ? <th></th> : null}
                   </tr>
@@ -940,6 +1003,7 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                   {admins.map((p: any) => {
                     const isSelf = p.id === session.profileId;
                     const isReadonly = p.role_code === "admin_readonly";
+                    const pending = pendingEmails.has((p.email ?? "").toLowerCase());
                     return (
                       <tr>
                         <td>
@@ -953,19 +1017,34 @@ accessRoutes.get("/admin/access/admins", async (c) => {
                           </Badge>
                         </td>
                         <td>
+                          <Badge tone={pending ? "amber" : "green"}>{pending ? "pending" : "confirmed"}</Badge>
+                        </td>
+                        <td>
                           <Badge tone={p.is_active ? "green" : "gray"}>{p.is_active ? "active" : "off"}</Badge>
                         </td>
                         {canWrite ? (
                           <td class="row" style="gap:6px;">
-                            <form
-                              method="post"
-                              action={`/admin/access/admins/${p.id}/reset`}
-                              onsubmit="return confirm('Send this admin a password reset email?')"
-                            >
-                              <button class="btn secondary small" type="submit">
-                                Reset password
-                              </button>
-                            </form>
+                            {pending ? (
+                              <form
+                                method="post"
+                                action={`/admin/access/admins/${p.id}/resend`}
+                                onsubmit="return confirm('Resend the invite email to this admin?')"
+                              >
+                                <button class="btn secondary small" type="submit">
+                                  Resend invite
+                                </button>
+                              </form>
+                            ) : (
+                              <form
+                                method="post"
+                                action={`/admin/access/admins/${p.id}/reset`}
+                                onsubmit="return confirm('Send this admin a password reset email?')"
+                              >
+                                <button class="btn secondary small" type="submit">
+                                  Reset password
+                                </button>
+                              </form>
+                            )}
                             {!isSelf ? (
                               <form
                                 method="post"
@@ -1040,6 +1119,26 @@ accessRoutes.post("/admin/access/admins/:id/reset", async (c) => {
   return c.redirect(
     `/admin/access/admins?ok=${encodeURIComponent(`Password reset email sent to ${data.user.email}.`)}`
   );
+});
+
+accessRoutes.post("/admin/access/admins/:id/resend", async (c) => {
+  const ctx = await requireAdmin(c);
+  if (ctx instanceof Response) return ctx;
+  const { admin } = ctx;
+  if (!admin) return c.redirect("/admin/access/admins?err=Service%20role%20not%20configured");
+  const id = c.req.param("id");
+  const origin = new URL(c.req.url).origin;
+
+  const { data, error } = await admin.auth.admin.getUserById(id);
+  if (error || !data?.user?.email) {
+    return c.redirect("/admin/access/admins?err=Admin%20not%20found");
+  }
+
+  const res = await resendInvite(admin, data.user.email, origin);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Resend failed")}`);
+  }
+  return c.redirect(`/admin/access/admins?ok=${encodeURIComponent(`Invite resent to ${data.user.email}.`)}`);
 });
 
 accessRoutes.post("/admin/access/admins/:id/active", async (c) => {

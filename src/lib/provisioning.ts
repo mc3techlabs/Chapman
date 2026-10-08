@@ -344,6 +344,39 @@ export async function resetReviewerPassword(
   return { ok: true };
 }
 
+/**
+ * Resends the sign-up link to an account that was invited but never
+ * finished setting a password — the fix for an invite email that expired
+ * before the invitee could click it. Tries re-inviting first (Supabase
+ * resends the invite mail for a still-unconfirmed user); if that's refused,
+ * falls back to a password-recovery link, which lands on the same
+ * /auth/accept page and lets them set a password just the same. No-ops
+ * with a clear message if the account already completed sign-up.
+ */
+export async function resendInvite(
+  admin: SupabaseClient,
+  email: string,
+  origin: string
+): Promise<{ ok: boolean; message?: string }> {
+  const target = email.toLowerCase().trim();
+  const existing = await findAuthUserByEmail(admin, target);
+  if (!existing) return { ok: false, message: "No account found for this email." };
+  if (existing.email_confirmed_at) {
+    return { ok: false, message: "This account already finished sign-up — use Reset password instead." };
+  }
+
+  const redirectTo = `${origin}/auth/accept`;
+  const { error: inviteError } = await admin.auth.admin.inviteUserByEmail(target, {
+    data: existing.user_metadata ?? {},
+    redirectTo,
+  });
+  if (!inviteError) return { ok: true };
+
+  const { error: recoveryError } = await admin.auth.resetPasswordForEmail(target, { redirectTo });
+  if (recoveryError) return { ok: false, message: recoveryError.message };
+  return { ok: true };
+}
+
 /** Sets role / scope on a profile. */
 export async function setProfileScope(
   admin: SupabaseClient,
