@@ -283,13 +283,20 @@ export async function createReviewerAccount(
   const userId = data?.user?.id;
   if (!userId) return { ok: false, email, message: "Invite sent but no user id returned." };
 
-  // The trigger creates the profile; give it the exact scope, then fan out the
-  // assignments across every chapter the reviewer is responsible for.
-  await setProfileScope(admin, userId, {
+  // The on_auth_user_created trigger normally creates the profile row, but
+  // doesn't run at all when inviteUserByEmail finds an email that already
+  // has an (unconfirmed) auth user and just re-sends the token instead of
+  // inserting a new row - so this upserts rather than updates, to self-heal
+  // a profile that never got created, then fans the scope out across every
+  // chapter the reviewer is responsible for.
+  const scopeRes = await setProfileScope(admin, userId, {
     role: input.role,
+    email,
+    fullName: input.fullName,
     district: input.role === "district_director" ? input.district ?? null : null,
     region: input.role === "rvp" ? input.region ?? null : null,
   });
+  if (!scopeRes.ok) return { ok: false, userId, email, message: scopeRes.message };
   await syncReviewerAssignments(admin, userId, input.role, {
     district: input.district ?? null,
     region: input.region ?? null,
@@ -316,10 +323,10 @@ export async function createAdminAccount(
   const userId = data?.user?.id;
   if (!userId) return { ok: false, email, message: "Invite sent but no user id returned." };
 
-  // Belt-and-suspenders, matching createReviewerAccount: the on_auth_user_created
-  // trigger already sets role_code from the invite metadata, this just
-  // guarantees it even if the trigger's metadata read ever changes.
-  await setProfileScope(admin, userId, { role });
+  // Self-heals a profile the on_auth_user_created trigger never created (see
+  // the comment in createReviewerAccount above).
+  const scopeRes = await setProfileScope(admin, userId, { role, email, fullName: input.fullName });
+  if (!scopeRes.ok) return { ok: false, userId, email, message: scopeRes.message };
   return { ok: true, userId, email };
 }
 
@@ -377,17 +384,38 @@ export async function resendInvite(
   return { ok: true };
 }
 
-/** Sets role / scope on a profile. */
+/**
+ * Sets role / scope on a profile. Upserts rather than updates: the
+ * on_auth_user_created trigger (supabase/migrations/0001_schema.sql) is
+ * supposed to create the row, but it only fires on a genuine INSERT into
+ * auth.users - inviteUserByEmail against an email that already has an
+ * (unconfirmed) auth user just re-sends the token without inserting a new
+ * row, so no trigger fires and a plain UPDATE here would silently match
+ * zero rows, leaving the invite with no profile at all. role_code is
+ * required for an insert; email/fullName are needed too so a self-heal
+ * insert doesn't leave those blank.
+ */
 export async function setProfileScope(
   admin: SupabaseClient,
   profileId: string,
-  scope: { role?: string; district?: string | null; region?: string | null }
-) {
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  scope: {
+    role?: string;
+    district?: string | null;
+    region?: string | null;
+    email?: string;
+    fullName?: string;
+  }
+): Promise<{ ok: boolean; message?: string }> {
+  const patch: Record<string, unknown> = { id: profileId, updated_at: new Date().toISOString() };
   if (scope.role !== undefined) patch.role_code = scope.role;
   if (scope.district !== undefined) patch.district = scope.district;
   if (scope.region !== undefined) patch.region = scope.region;
-  await admin.from("profiles").update(patch).eq("id", profileId);
+  if (scope.email !== undefined) patch.email = scope.email;
+  if (scope.fullName !== undefined) patch.full_name = scope.fullName;
+
+  const { error } = await admin.from("profiles").upsert(patch, { onConflict: "id" });
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
 }
 
 /** Deactivates / reactivates a login (profiles.is_active gates sign-in). */
