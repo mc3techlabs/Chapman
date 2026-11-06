@@ -62,29 +62,42 @@ does not propose changing any of that, only how the data layer protects it.
 
 ---
 
-## 2. Defect inventory (carried forward from the security review)
+## 2. Defect inventory
 
 Each entry: verdict as last established, severity, evidence, target phase.
+This list was extended after an independently commissioned second review
+(a separate model, given only the raw source — not this document or the
+original findings — and asked to form its own conclusions). Items 10–14
+and several of the "Evidence" refinements below came from that pass and
+were then independently re-verified against the actual source lines in
+this repo before being accepted here — they are not taken on the second
+review's word alone.
 
 | # | Defect | Verdict | Severity | Evidence | Phase |
 |---|---|---|---|---|---|
 | 1a | New signup / missing-profile row can self-assign `role_code` via user metadata (`INSERT` path — `prevent_profile_self_escalation` is `UPDATE`-only, never guards this) | CONFIRMED as coded | CRITICAL (contingent on public signup being enabled, or any profile going missing — both realistic) | `0004_rls_write_hardening.sql:43-46` (UPDATE-only); `bootstrap.sql:2850-2910` (`handle_new_profile`/`ensure_profile`, both plain `INSERT`) | 1 |
 | 1b | Existing-account escalation via `auth.updateUser()` on an already-profiled user | Likely blocked by `prevent_profile_self_escalation` firing on the nested write, but **not independently confirmed against a live project** | N/A pending verification | traced in review; execution-context facts (GoTrue connection JWT-claims behavior) remain unverified | 1 (verify only) |
+| 1c | **Distinct from 1a/1b, and more direct: any authenticated user with no existing profile row can `POST /rest/v1/profiles` directly with `role_code: 'admin'`.** No trigger, no metadata, no dependency on which `handle_new_profile` version is live — a plain RLS gap. The missing-profile precondition is not hypothetical here: this engagement already found and fixed exactly that condition in production for invited admins/reviewers, so treat 1c as live-exploitable, not conditional. | CONFIRMED (independently re-verified against source) | CRITICAL | `0002_rls_policies.sql:109-111` (`profiles_admin_insert`, `with check (public.is_admin() or id = auth.uid())` — no column restriction) | 1 |
 | 2 | Chapter can write arbitrary `submission_item_responses.awarded_points` / unrelated `rubric_item_id`, and arbitrary `submissions.final_score`/`max_score` while in draft/returned, via direct PostgREST | CONFIRMED | CRITICAL | `0002_rls_policies.sql:226-242` (no WITH CHECK on value); `0007_chapter_withdraw_submission.sql:50-59` (score columns unconstrained in the "recalc" trigger branch) | 1 |
 | 3 | Executive approval's "both lanes approved" gate exists only in TypeScript, not DB; `is_executive()` is fully exempted from `enforce_submission_transition` | CONFIRMED | HIGH | `0002_rls_policies.sql:198-209` (`WITH CHECK (true)`); trigger bypass line in `0004`/`0007`; app-level gate in `supabase.ts:483-487` and `review.tsx:484-490` | 1 |
-| 4 | Parallel DD/RVP approval is a read-then-write race; can strand a submission at `workflow_status='submitted'` with both lanes approved, invisible to the executive queue | CONFIRMED | HIGH (correctness) | `supabase.ts:469-495` (SELECT then separate UPDATE); queue filter `supabase.ts:444-448` | 2 |
-| 5 | Mutation functions never check `{ error }` from their `.update()` before writing `approval_actions`/`audit_log`, so a rejected write can still log as succeeded | CONFIRMED | HIGH | `supabase.ts:416-516` (`submitReport`, `withdrawSubmission`, `approve`, `returnSubmission`, `reopenSubmission`) | 1 |
-| 6 | Deactivated accounts are not denied by the app session layer or by RLS — only by Auth `ban_duration`, which doesn't revoke an already-issued JWT | CONFIRMED | HIGH (bounded by JWT TTL — unverified) | `supabase.ts:72-117` (`profileAndSession` never checks `is_active`); `0002_rls_policies.sql:12-42` (role helpers never check `is_active`); `provisioning.ts:361-370` | 1 |
-| 7 | `approval_actions` INSERT policy lets anyone who can *see* a submission insert a row claiming any `reviewer_role_code`/`action` — a chapter can forge its own "approved by district_director" history | CONFIRMED | CRITICAL | `0002_rls_policies.sql:255-261` (`WITH CHECK` only checks `reviewer_profile_id = auth.uid()`, never validates role or assignment) | 1 |
+| 4 | Parallel DD/RVP approval is a read-then-write race; can strand a submission at `workflow_status='submitted'` with both lanes approved, invisible to the executive queue. **Separately**, the transition trigger's approve-branch only checks `district_review_status='pending'`, never `workflow_status='submitted'` — a DD/RVP can approve a chapter's still-in-progress draft before it's ever submitted. | CONFIRMED (race); CONFIRMED (draft-approval gap, independently re-verified) | HIGH (correctness) | `supabase.ts:469-495` (SELECT then separate UPDATE); queue filter `supabase.ts:444-448`; `0007_chapter_withdraw_submission.sql:93-109` (district-director branch never requires prior `workflow_status='submitted'`) | 2 |
+| 5 | Mutation functions never check `{ error }` **or row count** from their `.update()` before writing `approval_actions`/`audit_log`, so a rejected write — including a silent, error-free RLS-filtered update matching zero rows — can still log as succeeded. (Checking `{ error }` alone is insufficient; this was a gap in the original recommended fix, now corrected.) | CONFIRMED | HIGH | `supabase.ts:416-516` (`submitReport`, `withdrawSubmission`, `approve`, `returnSubmission`, `reopenSubmission`) | 1 |
+| 6 | Deactivated accounts are not denied by the app session layer or by RLS — only by Auth `ban_duration`, which doesn't revoke an already-issued JWT. **Separately**, the function that sets `is_active`/issues the ban itself never checks the result of either call, so deactivation can silently half-apply. | CONFIRMED | HIGH (bounded by JWT TTL — unverified) | `supabase.ts:72-117` (`profileAndSession` never checks `is_active`); `0002_rls_policies.sql:12-42` (role helpers never check `is_active`); `provisioning.ts:361-370` (`setAccountActive` — both the `profiles` update and the `auth.admin.updateUserById` ban call are unchecked, the latter actively `.catch(() => undefined)`-swallowed) | 1 |
+| 7 | `approval_actions` INSERT policy lets anyone who can *see* a submission insert a row claiming any `reviewer_role_code`/`action` — a chapter can forge its own "approved by district_director" history. **Separately**, `admin_readonly` is not actually read-only: the same general actor-is-self policies let it insert approval/audit rows and, through `current_chapter_ids()` having no role check, write chapter-scoped data if it ever retains an active `chapter_user_links` row. | CONFIRMED | CRITICAL | `0002_rls_policies.sql:255-261` (`WITH CHECK` only checks `reviewer_profile_id = auth.uid()`); `0002_rls_policies.sql:28-32` (`current_chapter_ids()` filters on `profile_id`/`is_active` only, never `role_code`) | 1 |
 | 8 | `reporting_windows.opens_on`/`closes_on` are never read by any policy, trigger, or route — deadlines are purely advisory | CONFIRMED | MEDIUM | grep across `supabase/migrations/` and `src/routes/` for `closes_on`/`opens_on`: zero matches outside the table definition | 3 |
-| 9 | Two divergent deployment paths (`migrations/0001…0007` vs `bootstrap.sql` vs `fix-auth-profiles.sql`) produce different live behavior for the same repo, and there is no mechanism confirming which one is actually deployed | CONFIRMED | CRITICAL (blocks verifying every other finding) | §1 above; `README.md` §6 vs §8 | 0 |
+| 9 | Two divergent deployment paths (`migrations/0001…0007` vs `bootstrap.sql` vs `fix-auth-profiles.sql`) produce different live behavior for the same repo, and there is no mechanism confirming which one is actually deployed. **Separately**, the migration runner itself hides partial failure: it logs `FAILED` per file, keeps going, and unconditionally prints `"Migrations applied."` at the end regardless of how many files errored — an operator has no signal anything went wrong. | CONFIRMED | CRITICAL (blocks verifying every other finding) | §1 above; `README.md` §6 vs §8; `scripts/apply-migrations.ts:43-62` (per-file catch logs and continues; no exit code or accumulated failure flag; unconditional success message) | 0 |
+| 10 | `submissions_chapter_insert` constrains only `chapter_id` and `workflow_status` on INSERT — a chapter can create its *first* submission record with both review statuses pre-set to `'approved'`, an arbitrary score, a mismatched `rubric_version_id`, or `submitted_by_profile_id` naming a different profile. Cannot reach `workflow_status='finalized'` directly (the policy itself restricts that enum value), but can create an internally inconsistent, misleading record no trigger ever re-validates (the transition trigger is `UPDATE`-only). | CONFIRMED (independently re-verified against source) | HIGH | `0002_rls_policies.sql:177-183` | 1 |
+| 11 | `documents_insert` constrains only chapter ownership — a chapter can INSERT a document row with `status: 'accepted'`, a fabricated `reviewed_by_profile_id`/`reviewed_at`, and an arbitrary `storage_path`/`submission_id`, without ever uploading a real file. The 0004 hardening locked down `documents_update` only; `documents_insert` was never touched. | CONFIRMED (independently re-verified against source) | HIGH | `0002_rls_policies.sql:296-302`; `0004_rls_write_hardening.sql:211-215` (update-only fix) | 1 |
 
-**Note on 1a/1b**: the earlier correction downgraded the *existing-account*
-escalation path from "confirmed" to "likely blocked, unverified" — the
-*new-account/missing-profile* path remains fully confirmed as coded. Phase 1
-must close both regardless of which is currently exploitable in practice;
-treat the "likely blocked" status as **not a pass**, only as a reason it
-isn't the top line item.
+**Note on 1a/1b/1c**: the earlier correction downgraded the *existing-account*
+escalation path (1b) from "confirmed" to "likely blocked, unverified." 1a
+(missing-profile/signup, via trigger+metadata) and 1c (missing-profile, via
+direct RLS insert — simpler, no trigger dependency at all) both remain
+fully confirmed as coded. Phase 1 must close all three regardless of which
+is currently exploitable in practice; treat 1b's "likely blocked" status as
+**not a pass**, only as a reason it isn't the top line item. 1c is, on
+current evidence, the single easiest path to full compromise in this
+schema — it should be the first line fixed in Phase 1, not 1a.
 
 ---
 
@@ -170,14 +183,25 @@ what's live matches the repo.
   record an identity/checksum per applied migration so a modified
   already-applied file is detected, not silently re-run or ignored; wrap
   each migration in a transaction; support a dry-run mode that reports
-  what *would* change without applying it.
+  what *would* change without applying it; **and stop swallowing partial
+  failure** — `scripts/apply-migrations.ts` today catches each file's
+  error, logs it, and keeps going, then unconditionally prints
+  `"Migrations applied."` regardless of how many files actually failed.
+  The runner must exit non-zero and refuse to claim success if any file
+  errored.
 - **Exit criteria**: running the migration set twice against a fresh DB is
   idempotent and produces identical `pg_get_functiondef`/`pg_policies`
   output both times; the drift-check script run against a real (non-prod)
   Supabase project reports zero drift.
 
 ### Phase 1 — Authorization hardening (the critical findings)
-Closes defects 1a, 1b (verify), 2, 3, 5, 6, 7 from §2.
+Closes defects 1a, 1b (verify), 1c, 2, 3, 5, 6, 7, 10, 11 from §2.
+- `profiles_admin_insert` (defect 1c): tighten the WITH CHECK so a
+  self-inserted row can never set `role_code` to anything but the
+  schema's non-privileged default, regardless of what the caller supplies
+  — the admin branch stays, the `id = auth.uid()` branch stops being able
+  to choose its own authority. **Do this first** — it's the most direct
+  path to full compromise in the current schema.
 - `handle_new_profile`: INSERT-only, no metadata-driven role assignment on
   an existing row, ever. `ensure_profile`: same constraint — self-heal
   fills a *missing* row but never lets user-supplied metadata choose a
@@ -186,22 +210,39 @@ Closes defects 1a, 1b (verify), 2, 3, 5, 6, 7 from §2.
   trigger replaces client-trusted `final_score`/`max_score`/`awarded_points`
   in every branch, including the chapter "recalc" path; add the
   `rubric_item_id`-belongs-to-`rubric_version_id` check.
+- `submissions_chapter_insert` (defect 10): constrain the initial INSERT to
+  a canonical starting state — both review statuses `'pending'`, score
+  columns zeroed or server-computed, `rubric_version_id` matching the
+  chapter's actual type, `submitted_by_profile_id`/timestamps left for the
+  server to set, not the caller.
+- `documents_insert` (defect 11): mirror the `documents_update` hardening
+  — chapter-initiated inserts are pinned to `status: 'uploaded'`, with
+  `reviewed_by_profile_id`/`reviewed_at` left null until a real,
+  admin/reviewer-driven review transition sets them.
 - `enforce_submission_transition`: fold the two-lane executive gate into
-  the trigger itself instead of exempting `is_executive()` entirely.
+  the trigger itself instead of exempting `is_executive()` entirely;
+  while in there, also require `old.workflow_status = 'submitted'` before
+  permitting a DD/RVP lane approval (closing the draft-approval gap noted
+  under defect 4).
 - Every mutation in `supabase.ts` (`submitReport`, `withdrawSubmission`,
   `approve`, `returnSubmission`, `reopenSubmission`) checks `{ error }`
-  from its `.update()` before writing an audit/approval record, and
-  propagates failure to the caller.
+  **and that a row actually came back** from its `.update()` before
+  writing an audit/approval record, and propagates failure to the caller.
 - `profileAndSession()` and the RLS role helpers (`current_role()`,
   `is_admin()`, etc.) check `profiles.is_active`; a deactivated account's
   session stops resolving even with a technically-valid JWT.
+  `setAccountActive()` checks the result of both its `profiles` update and
+  its Auth ban call, and reports (not swallows) a partial failure.
 - `approval_actions` INSERT policy (or a `BEFORE INSERT` trigger) validates
   `reviewer_role_code = current_role()` and that the actor is the actual
   assigned reviewer for that submission's chapter — not merely that they
-  can see the row.
-- **Exit criteria**: every acceptance test listed against defects 1a, 2, 3,
-  5, 6, 7 in the original review passes against a disposable test database
-  (§6), independently re-run, not just reported by the implementer.
+  can see the row. While touching this, make `current_chapter_ids()` (or
+  its callers) respect role, so `admin_readonly` can't acquire
+  chapter-scoped write access by way of a stale `chapter_user_links` row.
+- **Exit criteria**: every acceptance test listed against defects 1a, 1c,
+  2, 3, 5, 6, 7, 10, 11 in the original review passes against a disposable
+  test database (§6), independently re-run, not just reported by the
+  implementer.
 
 ### Phase 2 — Workflow consistency
 Closes defect 4.
