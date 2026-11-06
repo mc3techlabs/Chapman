@@ -100,6 +100,12 @@ export function createSupabaseStore(
       .eq("id", user.id)
       .maybeSingle();
     if (!profile) return null;
+    // Deactivation is now enforced in the database too (every RLS role
+    // helper requires is_active), but checking it here as well kills the
+    // session cleanly: without this, a deactivated user's still-valid JWT
+    // would pass every route guard that reads session.role, then fail
+    // confusingly at the first write once RLS rejects it.
+    if (!profile.is_active) return null;
     const { data: links } = await client
       .from("chapter_user_links")
       .select("chapter_id")
@@ -415,23 +421,20 @@ export function createSupabaseStore(
 
     async submitReport(submissionId) {
       const actorId = await currentUserId();
-      await client
-        .from("submissions")
-        .update({
-          workflow_status: "submitted",
-          district_review_status: "pending",
-          regional_review_status: "pending",
-          executive_review_status: "pending",
-          submitted_at: new Date().toISOString(),
-          submitted_by_profile_id: actorId,
-        })
-        .eq("id", submissionId);
+      await updateSubmissionOrThrow(client, submissionId, {
+        workflow_status: "submitted",
+        district_review_status: "pending",
+        regional_review_status: "pending",
+        executive_review_status: "pending",
+        submitted_at: new Date().toISOString(),
+        submitted_by_profile_id: actorId,
+      });
       await logAction(client, submissionId, "submitted", {}, actorId);
     },
 
     async withdrawSubmission(submissionId) {
       const actorId = await currentUserId();
-      await client.from("submissions").update({ workflow_status: "draft" }).eq("id", submissionId);
+      await updateSubmissionOrThrow(client, submissionId, { workflow_status: "draft" });
       await logAction(client, submissionId, "withdrawn", {}, actorId);
     },
 
@@ -490,7 +493,7 @@ export function createSupabaseStore(
       } else if (nextDistrict === "approved" && nextRegional === "approved") {
         patch.workflow_status = "pending_executive";
       }
-      await client.from("submissions").update(patch).eq("id", submissionId);
+      await updateSubmissionOrThrow(client, submissionId, patch);
       await recordApproval(client, submissionId, role, "approved", comment, await currentUserId());
     },
 
@@ -498,20 +501,17 @@ export function createSupabaseStore(
       const patch: any = { workflow_status: "returned" };
       if (role === "district_director") patch.district_review_status = "returned";
       if (role === "rvp") patch.regional_review_status = "returned";
-      await client.from("submissions").update(patch).eq("id", submissionId);
+      await updateSubmissionOrThrow(client, submissionId, patch);
       await recordApproval(client, submissionId, role, "returned", comment, await currentUserId());
     },
 
     async reopenSubmission(submissionId, comment) {
-      await client
-        .from("submissions")
-        .update({
-          workflow_status: "returned",
-          district_review_status: "pending",
-          regional_review_status: "pending",
-          executive_review_status: "pending",
-        })
-        .eq("id", submissionId);
+      await updateSubmissionOrThrow(client, submissionId, {
+        workflow_status: "returned",
+        district_review_status: "pending",
+        regional_review_status: "pending",
+        executive_review_status: "pending",
+      });
       await logAction(client, submissionId, "reopened", { comment: comment ?? null }, await currentUserId());
     },
 
@@ -630,6 +630,21 @@ export function createSupabaseStore(
   };
 }
 
+/**
+ * Updates a submission row and throws unless a row actually changed.
+ * Checking only `{ error }` is not enough: an RLS-filtered UPDATE that
+ * matches zero rows (e.g. a reviewer no longer assigned to this chapter)
+ * returns success with an empty result, not an error - the caller would
+ * otherwise log an approval/audit record for a write that never happened.
+ */
+async function updateSubmissionOrThrow(client: SupabaseClient, submissionId: string, patch: Record<string, unknown>) {
+  const { data, error } = await client.from("submissions").update(patch).eq("id", submissionId).select("id");
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error("Update was rejected or the submission is no longer in a state this action allows.");
+  }
+}
+
 /** Recomputes submission totals from stored responses (never trusts client). */
 async function recalc(client: SupabaseClient, submissionId: string) {
   const { data: sub } = await client
@@ -652,10 +667,7 @@ async function recalc(client: SupabaseClient, submissionId: string) {
   let maxScore = 0;
   for (const [, v] of maxMap) maxScore += v as number;
   for (const r of responses ?? []) finalScore += (r as any).awarded_points ?? 0;
-  await client
-    .from("submissions")
-    .update({ final_score: finalScore, max_score: maxScore })
-    .eq("id", submissionId);
+  await updateSubmissionOrThrow(client, submissionId, { final_score: finalScore, max_score: maxScore });
 }
 
 async function recordApproval(

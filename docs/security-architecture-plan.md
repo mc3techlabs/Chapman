@@ -220,6 +220,104 @@ genuine local Postgres instance (not just asserted to work):
 
 ### Phase 1 — Authorization hardening (the critical findings)
 Closes defects 1a, 1b (verify), 1c, 2, 3, 5, 6, 7, 10, 11 from §2.
+
+**Status: code complete (migration `0008_phase1_authorization_hardening.sql`),
+locally verified, NOT yet verified against a real Supabase project.** Every
+item below was independently re-verified against a genuine local Postgres
+instance by actually attempting the exploit as the restricted `authenticated`
+role (via `SET ROLE` + `request.jwt.claim.*` GUCs, per §6.2 — never as
+`postgres`/table owner) and confirming rejection, alongside the real app
+flows still succeeding:
+- **1c** (the most direct path, fixed first): `profiles_admin_insert` now
+  requires a self-inserted row to be exactly the non-privileged default
+  (`role_code='chapter'`, `district`/`region` null, `is_active=true`) — the
+  admin branch is unchanged. Verified: a no-profile account inserting
+  `role_code:'admin'` is rejected; inserting the default row succeeds.
+- **1a**: `handle_new_profile`/`ensure_profile` never read
+  `raw_user_meta_data` for `role_code`/`district`/`region` again — every
+  new profile always starts as `'chapter'`. Verified: a brand-new signup
+  with `role_code:'admin'` in its signup metadata still gets `'chapter'`.
+  `src/lib/provisioning.ts`'s existing invite → `setProfileScope` upgrade
+  flow (which runs as the service-role client immediately after) is
+  unaffected — verified directly, since the local test identities for
+  every reviewer/admin role were set up through exactly that two-step
+  flow and all behaved correctly afterward.
+- **2**: a new `enforce_response_integrity` trigger on
+  `submission_item_responses` rejects a response whose `rubric_item_id`
+  doesn't belong to the submission's own `rubric_version_id`, and always
+  recomputes `awarded_points` itself (mirrors `src/lib/scoring.ts`'s
+  `pointsFor()` exactly). `enforce_submission_transition`'s chapter-recalc
+  branch now requires `final_score`/`max_score` to equal the
+  server-computed total, rejecting any other value. Verified: an unrelated
+  rubric's item is rejected; a client-supplied `awarded_points` of 999999
+  is silently overwritten to the correct value; a direct
+  `final_score: 999999` PATCH is rejected; writing the real computed total
+  succeeds.
+- **10**: `enforce_submission_transition` now also fires `BEFORE INSERT`
+  and requires a chapter's new submission to start in the canonical state
+  (both lanes pending, zero score, `rubric_version_id` matching the
+  chapter's own type) — `submissions_chapter_insert`'s RLS also now pins
+  `workflow_status='draft'`. Verified: an INSERT pre-approved on both lanes
+  is rejected; an INSERT against the wrong chapter-type's rubric is
+  rejected.
+- **4 (draft-approval-gap piece only — the race itself is Phase 2)**: both
+  the approve and return branches for `district_director`/`rvp` now
+  require `old.workflow_status = 'submitted'`. Verified: a DD cannot
+  approve or return a submission still in draft; both succeed once the
+  chapter has actually submitted.
+- **3**: the executive branch is no longer exempted from the trigger —
+  finalizing now requires both prior lanes already `'approved'`, checked
+  against the row's actual current state. Verified: an executive cannot
+  finalize before both lanes are approved; finalizing succeeds once they
+  are, via the real approve → approve → finalize sequence exercised
+  end-to-end.
+- **7**: a new `enforce_approval_action_integrity` trigger on
+  `approval_actions` requires `reviewer_role_code` to equal the actor's own
+  real current role, and for `district_director`/`rvp`, that they're
+  actually assigned to that submission's chapter. `current_chapter_ids()`
+  now also requires `role_code = 'chapter'`, closing the `admin_readonly`
+  scope-creep (a stale `chapter_user_links` row no longer grants
+  chapter-scoped write access to any other role). Verified: a chapter
+  cannot forge a `district_director` approval on its own submission; an
+  unassigned DD cannot record a decision; the actual assigned DD can; an
+  `admin_readonly` account with a lingering active chapter link cannot
+  write chapter-scoped data.
+- **11**: `documents_insert` now mirrors the existing `documents_update`
+  hardening — a chapter-initiated insert is pinned to
+  `status: 'uploaded'`, `reviewed_by_profile_id`/`reviewed_at` null.
+  Verified: a chapter cannot self-accept a fabricated document with a fake
+  reviewer; a real upload in the default state succeeds.
+- **6**: every RLS role helper (`current_role`, `is_admin`,
+  `is_admin_readonly`, `is_executive`, `current_district`,
+  `current_region`, `current_chapter_ids`) now requires
+  `profiles.is_active = true`; `profileAndSession()` in `supabase.ts` also
+  checks it, so a deactivated account's session stops resolving even with
+  a technically-valid JWT rather than failing confusingly at the first
+  write. `setAccountActive()` now checks and reports both its calls'
+  results instead of swallowing them. Verified: a deactivated chapter
+  account cannot create a submission even with its `chapter_user_links`
+  row still active.
+- **5**: `submitReport`, `withdrawSubmission`, `approve`,
+  `returnSubmission`, `reopenSubmission`, and `recalc()` all now go through
+  a shared `updateSubmissionOrThrow()` helper that checks both `{ error }`
+  and that a row actually came back from `.select()` — an RLS-filtered
+  update matching zero rows (observed directly during testing: a
+  wrong-district DD's attempted approval returned `UPDATE 0`, not an
+  error) now throws instead of silently appearing to succeed.
+- Also fixed while regenerating `bootstrap.sql` for this migration:
+  `scripts/gen-bootstrap.mjs`'s schema-file list was hardcoded to the
+  seven pre-Phase-1 migration filenames rather than reading the directory
+  — exactly the kind of silent drift Phase 0 exists to prevent, just one
+  migration away from recurring. It now reads `supabase/migrations/`
+  dynamically, sorted, matching `apply-migrations.ts` exactly. Re-verified
+  Phase 0's own property after this fix: `drift-check` run between a
+  `db:migrate`-built database and a `bootstrap.sql`-built database (both
+  now including migration 0008) reports zero drift in functions, triggers,
+  policies, and RLS-enabled state.
+- **What's NOT done**: as with Phase 0, none of this has been run against
+  an actual Supabase project — only local, disposable PostgreSQL 16. GoTrue's
+  real signup behavior, actual deployed grants, and defect 1b's
+  execution-context question remain unverified against a live project.
 - `profiles_admin_insert` (defect 1c): tighten the WITH CHECK so a
   self-inserted row can never set `role_code` to anything but the
   schema's non-privileged default, regardless of what the caller supplies
