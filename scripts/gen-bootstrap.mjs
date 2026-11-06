@@ -3,18 +3,35 @@
  * that you paste into the Supabase SQL Editor with the anon/service key (no DB
  * password, no network access from the sandbox needed).
  *
+ * Phase 0 (security-architecture-plan.md §4.1, §5) requires exactly one
+ * source of truth for the schema: supabase/migrations/0001...NNNN. This
+ * generator's only job is to mechanically reproduce that schema plus seed
+ * data for a one-paste SQL Editor workflow — it must never define, redefine,
+ * or override any function, trigger, or policy beyond exactly what the
+ * numbered migrations already say. (An earlier version of this script did
+ * exactly that via an "authFix" block that silently replaced the migrations'
+ * own on_auth_user_created trigger with a different, metadata-trusting one —
+ * that was the root cause of defect 9 in the security plan, and the same
+ * logic was also what made supabase/fix-auth-profiles.sql dangerous. Both
+ * are gone. If the schema needs new behavior, it belongs in a new numbered
+ * migration, reviewed like any other, not in this generator.)
+ *
  * The script:
- *   1. Applies the seven migrations (0001 schema, 0002 RLS, 0003 views, 0004 RLS
- *      write hardening, 0005 admin access levels, 0006 chapter reviewer
- *      visibility, 0007 chapter withdraw submission). They are
- *      already written with `if not exists` / `create or replace` / `drop ... if exists`,
- *      so running this on a project that already has *some* of the schema only
- *      creates what is missing — it never drops or overwrites your data.
- *   2. Converges two known gaps that an older scaffold can have:
- *        - rubric_items.mandatory_penalty          (integer, default 0)
- *        - submission_item_responses.answer_code   (''yes''|''no''|''na'')
- *   3. Seeds all lookup data, geography, the two rubric versions with 300 items,
- *      the 879-chapter roster, and the 7 document types — all idempotent.
+ *   1. Concatenates supabase/migrations/0001...0007 verbatim, in order. They
+ *      are already written with `if not exists` / `create or replace` /
+ *      `drop ... if exists`, so running this on a project that already has
+ *      *some* of the schema only creates what is missing — it never drops
+ *      or overwrites your data.
+ *   2. Seeds all lookup data, geography, the two rubric versions with 300
+ *      items, the 879-chapter roster, and the 7 document types — all
+ *      idempotent.
+ *
+ * This generator does not converge an older, pre-0001 scaffold (a prior
+ * prototype lineage, not this repo's migration history) to the current
+ * schema — if such a project exists, run `npm run db:migrate` against it
+ * directly and use `npm run drift-check` (see scripts/drift-check.ts) to
+ * confirm the result matches, rather than relying on a generator silently
+ * patching unknown gaps.
  *
  * Run: npm run gen:bootstrap
  */
@@ -77,173 +94,6 @@ const schema = [
   readFileSync(resolve(MIG, "0006_chapter_reviewer_visibility.sql"), "utf8"),
   readFileSync(resolve(MIG, "0007_chapter_withdraw_submission.sql"), "utf8"),
 ].join("\n\n");
-
-const gapFix = `-- ===========================================================================
--- CONVERGENCE: bring an older scaffold up to the current app schema.
--- Safe to run repeatedly; only adds what is missing, never drops or overwrites.
--- ===========================================================================
-
--- ternary scoring column for the "mandatory item" rule (ships with default 0,
--- so a future -1 rollout needs no migration)
-alter table public.rubric_items
-  add column if not exists mandatory_penalty integer not null default 0;
-
--- ternary answer column (yes | no | na)
-alter table public.submission_item_responses
-  add column if not exists answer_code text;
-
-do $$
-begin
-  -- if a legacy boolean column exists, fold it into answer_code
-  if exists (select 1 from information_schema.columns
-             where table_schema = 'public'
-               and table_name = 'submission_item_responses'
-               and column_name = 'answer_yes') then
-    execute $sql$
-      update public.submission_item_responses
-         set answer_code = case when answer_yes then 'yes' else 'no' end
-       where answer_code is null
-    $sql$;
-  end if;
-  update public.submission_item_responses set answer_code = 'no' where answer_code is null;
-end $$;
-
-alter table public.submission_item_responses alter column answer_code set not null;
-
-do $$
-begin
-  if not exists (select 1 from pg_constraint
-                 where conrelid = 'public.submission_item_responses'::regclass
-                   and conname = 'submission_item_responses_answer_code_check') then
-    alter table public.submission_item_responses
-      add constraint submission_item_responses_answer_code_check
-      check (answer_code in ('yes','no','na'));
-  end if;
-end $$;
-
--- ===========================================================================
--- UNIQUE-KEY GUARDS
--- The app upserts on these keys. On a project that already had an older
--- scaffold, the matching constraint may exist under a different name (or not
--- at all). A uniquely-named unique index enforces the same rule and lets the
--- upsert "on conflict (<cols>)" clauses work either way. No-op when present.
--- ===========================================================================
-create unique index if not exists uq_chapters_chapter_key          on public.chapters(chapter_key);
-create unique index if not exists uq_submissions_chapter_term_year  on public.submissions(chapter_id, term_code, reporting_year);
-create unique index if not exists uq_responses_submission_item      on public.submission_item_responses(submission_id, rubric_item_id);
-create unique index if not exists uq_chapter_user_links             on public.chapter_user_links(chapter_id, profile_id);
-create unique index if not exists uq_rubric_versions_code           on public.rubric_versions(version_code);
-create unique index if not exists uq_rubric_sections                on public.rubric_sections(rubric_version_id, section_code);
-create unique index if not exists uq_rubric_subsections             on public.rubric_subsections(rubric_section_id, subsection_code);
-create unique index if not exists uq_reporting_windows_code         on public.reporting_windows(window_code);
-`;
-
-/* --------------------------- auth <-> profile bridge --------------------- */
-const authFix = `-- ===========================================================================
--- AUTH -> PROFILE BRIDGE
--- The app needs a public.profiles row for every signed-in user. Two guards:
---   1. The trigger fires on INSERT *and* UPDATE, so (re-)saving a user's
---      metadata in the dashboard repairs/updates their profile.
---   2. ensure_profile() lets a user self-heal a missing row at sign-in (the app
---      calls it automatically). Needed for accounts created before this schema.
--- Unknown role_code values degrade to 'chapter' instead of erroring on the FK.
--- ===========================================================================
-
-create or replace function public.handle_new_profile()
-returns trigger as $$
-declare v_role text;
-begin
-  v_role := coalesce(
-    (select code from public.app_roles where code = new.raw_user_meta_data ->> 'role_code'),
-    'chapter'
-  );
-  insert into public.profiles (id, full_name, email, role_code, district, region)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data ->> 'full_name', ''),
-    new.email,
-    v_role,
-    new.raw_user_meta_data ->> 'district',
-    new.raw_user_meta_data ->> 'region'
-  )
-  on conflict (id) do update set
-    full_name  = coalesce(nullif(excluded.full_name, ''), public.profiles.full_name),
-    email      = coalesce(excluded.email, public.profiles.email),
-    role_code  = case when new.raw_user_meta_data ->> 'role_code' is not null
-                      then v_role else public.profiles.role_code end,
-    district   = coalesce(excluded.district, public.profiles.district),
-    region     = coalesce(excluded.region, public.profiles.region),
-    updated_at = now();
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert or update on auth.users
-  for each row execute procedure public.handle_new_profile();
-
--- Self-heal: create the caller's profile if missing (no-op otherwise).
-create or replace function public.ensure_profile()
-returns void language plpgsql security definer set search_path = public as $$
-declare
-  v_uid  uuid := auth.uid();
-  v_user auth.users;
-  v_role text;
-begin
-  if v_uid is null then return; end if;
-  if exists (select 1 from public.profiles where id = v_uid) then return; end if;
-  select * into v_user from auth.users where id = v_uid;
-  if not found then return; end if;
-  v_role := coalesce(
-    (select code from public.app_roles where code = v_user.raw_user_meta_data ->> 'role_code'),
-    'chapter'
-  );
-  insert into public.profiles (id, full_name, email, role_code, district, region)
-  values (
-    v_uid,
-    coalesce(v_user.raw_user_meta_data ->> 'full_name', ''),
-    v_user.email,
-    v_role,
-    v_user.raw_user_meta_data ->> 'district',
-    v_user.raw_user_meta_data ->> 'region'
-  )
-  on conflict (id) do nothing;
-end $$;
-
-grant execute on function public.ensure_profile() to authenticated;
-
--- Backfill profiles for existing auth users (an account created before this
--- schema was applied has no row). Idempotent.
-insert into public.profiles (id, full_name, email, role_code, district, region)
-select
-  u.id,
-  coalesce(u.raw_user_meta_data ->> 'full_name', ''),
-  u.email,
-  coalesce(
-    (select code from public.app_roles ar where ar.code = u.raw_user_meta_data ->> 'role_code'),
-    'chapter'
-  ),
-  u.raw_user_meta_data ->> 'district',
-  u.raw_user_meta_data ->> 'region'
-from auth.users u
-left join public.profiles p on p.id = u.id
-where p.id is null
-on conflict (id) do nothing;
-
--- Keep existing profiles in sync with their metadata (metadata wins; a value
--- with no metadata counterpart is preserved).
-update public.profiles p
-   set role_code  = coalesce(
-                      (select code from public.app_roles ar where ar.code = u.raw_user_meta_data ->> 'role_code'),
-                      p.role_code),
-       full_name  = coalesce(nullif(u.raw_user_meta_data ->> 'full_name', ''), p.full_name),
-       district   = coalesce(u.raw_user_meta_data ->> 'district', p.district),
-       region     = coalesce(u.raw_user_meta_data ->> 'region', p.region),
-       updated_at = now()
-  from auth.users u
- where u.id = p.id;
-`;
 
 /* ------------------------------- 2. seed --------------------------------- */
 const lookups = () => {
@@ -454,8 +304,11 @@ const header = `-- =============================================================
 -- file into the Supabase dashboard -> SQL Editor -> New query -> Run.
 --
 -- It is safe to run more than once, and safe to run on a project that already
--- contains part of the schema: it creates only what is missing, alters the two
--- known gaps, upserts seed rows, and NEVER drops or overwrites your data.
+-- contains part of the schema: it creates only what is missing, upserts seed
+-- rows, and NEVER drops or overwrites your data. This file is a mechanical
+-- concatenation of supabase/migrations/0001...0007 plus seed data - it never
+-- defines anything the migrations don't already define. See
+-- docs/security-architecture-plan.md §4.1.
 --
 -- Generated by scripts/gen-bootstrap.mjs — do not hand-edit; regenerate instead.
 -- Generated at: ${new Date().toISOString()}
@@ -483,8 +336,6 @@ const sql =
   header +
   schema +
   "\n\n" +
-  gapFix +
-  "\n\n" +
   "-- ============================ SEED DATA ==================================\n\n" +
   lookups() +
   "\n" +
@@ -495,26 +346,9 @@ const sql =
   windows() +
   "\n" +
   documents() +
-  "\n\n" +
-  // Runs AFTER the seed: the backfill inserts into profiles, whose role_code FK
-  // requires app_roles to be populated first.
-  authFix +
   footer;
 
 writeFileSync(OUT, sql, "utf8");
-
-// Standalone auth/profile repair, for a project that was already bootstrapped
-// (e.g. one passwordless user exists but no profile row). Same body as authFix.
-const fixSql =
-  "-- fix-auth-profiles.sql\n" +
-  "-- Run this if you can sign in with an existing Supabase user but the app\n" +
-  "-- bounces you straight back to /login (no matching public.profiles row).\n" +
-  "-- Safe and idempotent — paste into Supabase -> SQL Editor -> New query -> Run.\n\n" +
-  authFix +
-  "\n\n-- Result: your user should appear below with the expected role_code.\n" +
-  "select id, email, full_name, role_code, district, region, is_active\n" +
-  "from public.profiles order by created_at;\n";
-writeFileSync(resolve(ROOT, "supabase/fix-auth-profiles.sql"), fixSql, "utf8");
 
 const lines = sql.split("\n").length;
 console.log(`wrote ${OUT}`);
