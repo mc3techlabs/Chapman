@@ -418,16 +418,35 @@ export async function setProfileScope(
   return { ok: true };
 }
 
-/** Deactivates / reactivates a login (profiles.is_active gates sign-in). */
-export async function setAccountActive(admin: SupabaseClient, profileId: string, active: boolean) {
-  await admin
+/**
+ * Deactivates / reactivates a login (profiles.is_active gates sign-in and,
+ * as of Phase 1, every RLS role helper too). Checks both calls' results
+ * instead of swallowing them - a deactivation that silently half-applies
+ * (profile row updated but the Auth ban call failed, or vice versa) is
+ * worse than an error the admin can see and retry.
+ */
+export async function setAccountActive(
+  admin: SupabaseClient,
+  profileId: string,
+  active: boolean
+): Promise<{ ok: boolean; message?: string }> {
+  const { error: profileError } = await admin
     .from("profiles")
     .update({ is_active: active, updated_at: new Date().toISOString() })
     .eq("id", profileId);
+  if (profileError) return { ok: false, message: profileError.message };
+
   // Also stop the underlying auth user from refreshing a session.
-  await admin.auth.admin
-    .updateUserById(profileId, { ban_duration: active ? "none" : "876000h" })
-    .catch(() => undefined);
+  const { error: banError } = await admin.auth.admin.updateUserById(profileId, {
+    ban_duration: active ? "none" : "876000h",
+  });
+  if (banError) {
+    return {
+      ok: false,
+      message: `Profile updated, but the sign-in ban could not be changed: ${banError.message}`,
+    };
+  }
+  return { ok: true };
 }
 
 /**

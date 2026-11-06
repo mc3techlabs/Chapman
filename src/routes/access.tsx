@@ -979,7 +979,10 @@ accessRoutes.post("/admin/access/reviewers/:id/active", async (c) => {
   const form = await c.req.formData();
   const active = String(form.get("active") ?? "0") === "1";
   const id = c.req.param("id");
-  await setAccountActive(admin, id, active);
+  const res = await setAccountActive(admin, id, active);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/reviewers?err=${encodeURIComponent(res.message ?? "Update failed")}`);
+  }
   return c.redirect(
     `/admin/access/reviewers?ok=${encodeURIComponent(active ? "Account reactivated." : "Account deactivated.")}`
   );
@@ -1321,7 +1324,10 @@ accessRoutes.post("/admin/access/admins/:id/active", async (c) => {
 
   const form = await c.req.formData();
   const active = String(form.get("active") ?? "0") === "1";
-  await setAccountActive(admin, id, active);
+  const res = await setAccountActive(admin, id, active);
+  if (!res.ok) {
+    return c.redirect(`/admin/access/admins?err=${encodeURIComponent(res.message ?? "Update failed")}`);
+  }
   return c.redirect(
     `/admin/access/admins?ok=${encodeURIComponent(active ? "Admin reactivated." : "Admin deactivated.")}`
   );

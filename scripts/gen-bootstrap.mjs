@@ -35,7 +35,7 @@
  *
  * Run: npm run gen:bootstrap
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -85,15 +85,17 @@ function valRows(rows, mappers) {
 }
 
 /* ------------------------------- 1. schema ------------------------------- */
-const schema = [
-  readFileSync(resolve(MIG, "0001_schema.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0002_rls_policies.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0003_reporting_views.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0004_rls_write_hardening.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0005_admin_access_levels.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0006_chapter_reviewer_visibility.sql"), "utf8"),
-  readFileSync(resolve(MIG, "0007_chapter_withdraw_submission.sql"), "utf8"),
-].join("\n\n");
+// Every *.sql file in supabase/migrations/, in filename order - the same
+// list scripts/apply-migrations.ts applies. A hardcoded list here was
+// exactly the kind of silent drift Phase 0 exists to eliminate: it would
+// have needed a manual, easy-to-forget edit on every new migration,
+// otherwise bootstrap.sql would quietly fall behind what db:migrate
+// actually installs.
+const schema = readdirSync(MIG)
+  .filter((f) => f.endsWith(".sql"))
+  .sort()
+  .map((f) => readFileSync(resolve(MIG, f), "utf8"))
+  .join("\n\n");
 
 /* ------------------------------- 2. seed --------------------------------- */
 const lookups = () => {
