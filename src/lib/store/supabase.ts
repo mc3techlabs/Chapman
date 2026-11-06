@@ -469,40 +469,30 @@ export function createSupabaseStore(
       return (data ?? []) as SubmissionWithChapter[];
     },
 
-    async approve(submissionId, role, comment) {
-      const { data: sub } = await client
-        .from("submissions")
-        .select("*")
-        .eq("id", submissionId)
-        .maybeSingle();
-      if (!sub) return;
-      const s: any = sub;
-      const patch: any = {};
-      if (role === "district_director") patch.district_review_status = "approved";
-      if (role === "rvp") patch.regional_review_status = "approved";
-      const nextDistrict = role === "district_director" ? "approved" : s.district_review_status;
-      const nextRegional = role === "rvp" ? "approved" : s.regional_review_status;
-
-      if (role === "executive_director") {
-        // Server-side gate: executive may only finalize once both lanes approved.
-        if (!(nextDistrict === "approved" && nextRegional === "approved")) {
-          throw new Error("Both district and regional approvals are required before final approval.");
-        }
-        patch.executive_review_status = "approved";
-        patch.workflow_status = "finalized";
-      } else if (nextDistrict === "approved" && nextRegional === "approved") {
-        patch.workflow_status = "pending_executive";
-      }
-      await updateSubmissionOrThrow(client, submissionId, patch);
-      await recordApproval(client, submissionId, role, "approved", comment, await currentUserId());
+    // `role` is kept in the Store signature (and still used by demo.ts) but
+    // no longer trusted here - record_review_approval/record_review_return
+    // derive the real actor role server-side from current_role(), and do
+    // the decide-and-write step as one atomic SQL statement (a `CASE WHEN
+    // <other lane>` evaluated against the row's current value under
+    // Postgres's row lock) instead of this file reading the row, deciding,
+    // then writing in a separate request - which is what let a District
+    // Director and an RVP approving at nearly the same moment each see the
+    // other's lane as still-pending and leave workflow_status stuck at
+    // 'submitted' with both lanes actually approved.
+    async approve(submissionId, _role, comment) {
+      const { error } = await client.rpc("record_review_approval", {
+        p_submission_id: submissionId,
+        p_comment: comment ?? null,
+      });
+      if (error) throw new Error(error.message);
     },
 
-    async returnSubmission(submissionId, role, comment) {
-      const patch: any = { workflow_status: "returned" };
-      if (role === "district_director") patch.district_review_status = "returned";
-      if (role === "rvp") patch.regional_review_status = "returned";
-      await updateSubmissionOrThrow(client, submissionId, patch);
-      await recordApproval(client, submissionId, role, "returned", comment, await currentUserId());
+    async returnSubmission(submissionId, _role, comment) {
+      const { error } = await client.rpc("record_review_return", {
+        p_submission_id: submissionId,
+        p_comment: comment,
+      });
+      if (error) throw new Error(error.message);
     },
 
     async reopenSubmission(submissionId, comment) {
@@ -668,24 +658,6 @@ async function recalc(client: SupabaseClient, submissionId: string) {
   for (const [, v] of maxMap) maxScore += v as number;
   for (const r of responses ?? []) finalScore += (r as any).awarded_points ?? 0;
   await updateSubmissionOrThrow(client, submissionId, { final_score: finalScore, max_score: maxScore });
-}
-
-async function recordApproval(
-  client: SupabaseClient,
-  submissionId: string,
-  role: string,
-  action: "approved" | "returned" | "reopened",
-  comment: string | undefined,
-  actorId: string | null
-) {
-  if (!actorId) return;
-  await client.from("approval_actions").insert({
-    submission_id: submissionId,
-    reviewer_profile_id: actorId,
-    reviewer_role_code: role,
-    action,
-    action_comment: comment ?? null,
-  });
 }
 
 async function logAction(

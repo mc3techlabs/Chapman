@@ -367,16 +367,87 @@ flows still succeeding:
   implementer.
 
 ### Phase 2 — Workflow consistency
-Closes defect 4.
-- Replace the SELECT-then-UPDATE approve() pattern with a single atomic
-  UPDATE (conditional `CASE` on the live row, not a stale snapshot read
-  earlier in the request).
-- One-time reconciliation query/admin action to find and repair any
-  already-stranded submissions (`district_review_status='approved' AND
-  regional_review_status='approved' AND workflow_status='submitted'`).
+Closes defect 4 (the parallel-approval race specifically; the draft-approval
+gap half of defect 4 was already closed in Phase 0008 — see Phase 1 above).
+
+**Status: code complete (migration `0009_phase2_workflow_consistency.sql`),
+locally verified, NOT yet verified against a real Supabase project.**
+- `src/lib/store/supabase.ts`'s `approve()` and `returnSubmission()` no
+  longer do a client-side read-decide-write: they call two new `security
+  invoker` RPC functions, `record_review_approval()` and
+  `record_review_return()`, which do the decide-and-write as a single
+  atomic SQL `UPDATE ... SET workflow_status = CASE WHEN <other lane
+  already approved> THEN 'pending_executive' ELSE workflow_status END`
+  evaluated under Postgres's own row lock against the row's current value
+  — never a value read in an earlier, separate request. Both functions run
+  with the calling user's own privileges (not `security definer`), so RLS
+  and the existing `enforce_submission_transition` /
+  `enforce_approval_action_integrity` triggers from migration 0008 still
+  apply exactly as before; the actor's role is read server-side via
+  `current_role()`, never trusted from a client-supplied parameter.
+  PostgREST's REST API has no way to express "set this column based on
+  another column's current value" in a single `.update()` call — that's
+  the actual reason this needed a stored function rather than just
+  app-code discipline.
+- A one-time idempotent reconciliation block in the same migration repairs
+  any submission already stranded by the old race
+  (`workflow_status='submitted'` with both lanes `'approved'`), presenting
+  as `service_role` for that one statement so it passes
+  `enforce_submission_transition` the same way a real service-role
+  PostgREST request would.
+- **Verified against a genuine local Postgres instance** (never as
+  `postgres`/table owner — per §6.2, connected as `authenticated` via `SET
+  ROLE` + real `request.jwt.claim.*` GUCs):
+  - A deterministic lock-blocking test: Session A opens the RPC inside a
+    transaction and holds it before committing; Session B's concurrent
+    call to the other lane's RPC genuinely blocks on Session A's row lock
+    (measured ~2.56s wait, not a race that silently interleaves) and only
+    proceeds — correctly converging on `pending_executive` — after Session
+    A commits.
+  - 8 separate, genuinely concurrent DD+RVP approval trials (both RPCs
+    fired at the same submission at the same time, not sequentially), each
+    starting from a freshly-reset row verified clean before the run (the
+    first attempt at this test gave misleading results because the
+    per-run reset itself was being silently rejected by
+    `enforce_submission_transition` — fixed by having the reset present as
+    `service_role` and verifying post-reset state before each trial). All
+    8 converged correctly on `workflow_status='pending_executive'` with
+    both lanes `'approved'` and zero errors.
+  - The reconciliation block, tested against a row manually stranded at
+    `workflow_status='submitted'` with both lanes pre-set to `'approved'`:
+    re-running the migration's `do $$ ... $$` block correctly advances it
+    to `'pending_executive'`, and is a no-op when re-run again.
+  - Executive-finalize and `record_review_return()` exercised directly as
+    well: an executive director's approval still requires both prior lanes
+    already `'approved'` (unchanged from Phase 1) and now goes through the
+    same atomic RPC; a DD/RVP return still requires
+    `workflow_status='submitted'` and correctly sets both
+    `workflow_status` and the specific lane's status to `'returned'`.
+  - `drift-check` re-run between a `db:migrate`-built database and a
+    `bootstrap.sql`-built database (both now including migration 0009)
+    reports zero drift across 19 functions, 15 triggers, 47 policies, and
+    21 tables' RLS-enabled state — `scripts/gen-bootstrap.mjs`'s dynamic
+    directory read (fixed in Phase 1) correctly picked up the new
+    migration with no manual file-list edit.
+- **What's NOT done**: as with Phases 0 and 1, none of this has been run
+  against an actual Supabase project — only local, disposable PostgreSQL
+  16. In particular, genuine network-level concurrency through PostgREST
+  itself (two real simultaneous HTTP requests hitting a live Supabase
+  project, rather than two psql sessions against local Postgres) is still
+  unverified; the local test proves the SQL-level race is closed, not that
+  nothing upstream of Postgres (connection pooling, PostgREST's own request
+  handling) reintroduces a window.
+- Original plan (for reference — both items above are now implemented):
+  - Replace the SELECT-then-UPDATE approve() pattern with a single atomic
+    UPDATE (conditional `CASE` on the live row, not a stale snapshot read
+    earlier in the request).
+  - One-time reconciliation query/admin action to find and repair any
+    already-stranded submissions (`district_review_status='approved' AND
+    regional_review_status='approved' AND workflow_status='submitted'`).
 - **Exit criteria**: concurrent approve() calls from DD and RVP against the
   same submission always converge on `pending_executive`, verified with an
-  actual concurrent test (not reasoned about statically).
+  actual concurrent test (met, locally — see above; not yet attempted
+  against a real Supabase project).
 
 ### Phase 3 — Operational hardening
 Closes defect 8 plus the Step-3 deployment unknowns this plan depends on
