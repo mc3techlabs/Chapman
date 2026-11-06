@@ -168,31 +168,55 @@ but because they are separate decisions/workstreams):
 ### Phase 0 — Deployment integrity (blocks everything else)
 **Goal:** there is exactly one way to build the schema, and a way to prove
 what's live matches the repo.
-- Reconcile `bootstrap.sql` vs `migrations/0001-0007` vs
-  `fix-auth-profiles.sql` into the single source of truth described in
-  §4.1.
-- Add a repeatable **drift check**: a script that connects to a target
-  Supabase project (read-only: `pg_get_functiondef`, `pg_get_triggerdef`,
-  `pg_policies`, `information_schema.role_table_grants`) and diffs it
-  against what applying the canonical migrations in order *would* produce,
-  surfacing any mismatch instead of assuming consistency.
-- Migration runner requirements (this is "the catalog manifest" and
-  "migration identity/locking/checksum" vocabulary from the review
-  checklist, scoped here as explicit deliverables rather than assumed):
-  advisory-lock the migration run so two concurrent applies can't race;
-  record an identity/checksum per applied migration so a modified
-  already-applied file is detected, not silently re-run or ignored; wrap
-  each migration in a transaction; support a dry-run mode that reports
-  what *would* change without applying it; **and stop swallowing partial
-  failure** — `scripts/apply-migrations.ts` today catches each file's
-  error, logs it, and keeps going, then unconditionally prints
-  `"Migrations applied."` regardless of how many files actually failed.
-  The runner must exit non-zero and refuse to claim success if any file
-  errored.
-- **Exit criteria**: running the migration set twice against a fresh DB is
-  idempotent and produces identical `pg_get_functiondef`/`pg_policies`
-  output both times; the drift-check script run against a real (non-prod)
-  Supabase project reports zero drift.
+
+**Status: code complete, locally verified, NOT yet verified against a real
+Supabase project.** What's done, each independently re-verified against a
+genuine local Postgres instance (not just asserted to work):
+- `scripts/gen-bootstrap.mjs` no longer defines anything beyond a
+  mechanical concatenation of `supabase/migrations/0001-0007` plus seed
+  data — the `authFix` block that silently installed a different
+  `on_auth_user_created` trigger than the migrations define (defect 9) is
+  gone, and `supabase/bootstrap.sql` has been regenerated to match.
+  `supabase/fix-auth-profiles.sql` (generated from that same `authFix`
+  block) is deleted outright rather than reconciled, since its actual
+  content was the unsafe trigger shape in the first place. The UI message
+  that pointed users at that file now points at the admin "Needs repair"
+  flow instead (`src/index.tsx`).
+- `scripts/apply-migrations.ts`: advisory-locks the run (verified: a
+  concurrent run while the lock is held is correctly rejected, not
+  blocked/racing), tracks each applied migration's SHA-256 checksum in
+  `supabase_migrations.schema_migrations` (verified: re-running is a clean
+  no-op, and editing an already-applied file's content is detected and
+  refused, not silently re-run), runs each real apply in its own
+  transaction, supports `--dry-run` (runs the whole pending batch in one
+  outer transaction via savepoints, so later files can see earlier files'
+  effects, then always rolls back — verified nothing persists), and stops
+  immediately on first failure with a non-zero exit and no success message
+  (verified against a genuine failure, not a simulated one).
+- `scripts/drift-check.ts` (new): takes `EXPECTED_DB_URL` (a database the
+  migrations were just applied to) and `TARGET_DB_URL` (the project to
+  audit), and diffs live `pg_get_functiondef`/`pg_get_triggerdef`/
+  `pg_policies`/RLS-enabled state between them — not by parsing migration
+  SQL text (fragile), but by running identical introspection queries
+  against two real databases. Verified against a true negative (two
+  identically-migrated local databases report zero drift across 33
+  functions, 13 triggers, 47 policies, 21 tables) and a true positive
+  (installing the old vulnerable `handle_new_profile`/trigger pair onto
+  one side is caught precisely, with no false positives from unrelated
+  extension-owned functions).
+- **What's NOT done**: none of the above has been run against an actual
+  Supabase project — only a local, disposable PostgreSQL 16 instance on
+  this machine. Supabase's actual `auth` schema, GoTrue's real connection
+  behavior, and the project's real existing state (if any) are all
+  unverified. Running `npm run drift-check` against a real (non-prod)
+  Supabase project, with `EXPECTED_DB_URL` pointed at a fresh project the
+  migrations were just applied to, is still required before this phase
+  can be called done.
+- **Exit criteria** (unchanged from the original plan): running the
+  migration set twice against a fresh DB is idempotent and produces
+  identical `pg_get_functiondef`/`pg_policies` output both times (met,
+  locally); the drift-check script run against a real (non-prod) Supabase
+  project reports zero drift (not yet attempted).
 
 ### Phase 1 — Authorization hardening (the critical findings)
 Closes defects 1a, 1b (verify), 1c, 2, 3, 5, 6, 7, 10, 11 from §2.

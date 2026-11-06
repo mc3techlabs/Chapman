@@ -77,7 +77,7 @@ app.post("/login", async (c) => {
       c,
       <LoginPage
         demo={demo}
-        error="Signed in, but no portal profile is linked to this account yet. An administrator needs to assign your role — see supabase/fix-auth-profiles.sql."
+        error="Signed in, but no portal profile is linked to this account yet. An administrator can fix this from the Admins or Reviewers page under Access & Logins → Needs repair."
       />,
       403
     );
