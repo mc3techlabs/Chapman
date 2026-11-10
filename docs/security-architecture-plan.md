@@ -448,12 +448,13 @@ These cannot be settled by reading code — they require read-only queries
 or dashboard checks against the actual live project (carried forward from
 the original review's Step 3, since nothing has resolved them since):
 
-- `pg_get_functiondef`/`pg_get_triggerdef` for `handle_new_profile`,
+- ~~`pg_get_functiondef`/`pg_get_triggerdef` for `handle_new_profile`,
   `ensure_profile`, `prevent_profile_self_escalation`,
   `enforce_submission_transition` — settles which deployment path (§1/§4.1)
-  is actually live today.
-- `pg_policies` + `information_schema.role_table_grants` for the `public`
-  schema — confirms live RLS matches the repo.
+  is actually live today.~~ **RESOLVED 2026-11-10 — see §7.1 below.**
+- ~~`pg_policies` + `information_schema.role_table_grants` for the `public`
+  schema — confirms live RLS matches the repo.~~ **RESOLVED 2026-11-10 —
+  see §7.1 below.**
 - `select * from app_roles` — confirms no other seed rows are missing
   (one was already found missing and fixed live, outside this plan's
   scope, during this engagement).
@@ -464,6 +465,101 @@ the original review's Step 3, since nothing has resolved them since):
   push) point at a separate Supabase project from Production, or share
   credentials.
 - Database → Backups: PITR enabled, retention window.
+
+---
+
+### 7.1 Real-Supabase audit findings (2026-11-10)
+
+**Method:** this session has no outbound network path to any raw Postgres
+connection (the cloud sandbox only proxies HTTPS; DNS resolution itself
+fails for every external host except a special-cased git path) — a
+structural sandbox limitation, not a policy choice, confirmed by testing
+generic unlisted hosts, not just the Supabase one. So this was done
+manually: the operator ran the five read-only introspection queries
+`scripts/drift-check.ts` itself uses (`pg_get_functiondef`,
+`pg_get_triggerdef`, `pg_policies`, RLS-enabled flags, `role_table_grants`)
+directly in the Supabase SQL Editor against the real project, and pasted
+the results back for analysis against a local database with all 9
+migrations applied. Every query run was a plain `SELECT` — nothing was
+written in the course of gathering these findings.
+
+**Headline finding: the live project's schema was never built by running
+`supabase/migrations/0001-0009` in sequence.** It was assembled by some
+other, untracked process over time. Evidence: helper functions and a
+trigger exist in production that appear nowhere in any migration file
+(`current_role_code()`, `current_user_district()`, `current_user_region()`,
+`is_exec()`, `prevent_profile_self_escalation()` +
+`prevent_profile_self_escalation_trigger`), and on tables like
+`submissions`, `submission_item_responses`, and `approval_actions`, an
+*older* generation of RLS policies (e.g. `submissions_insert_chapter`,
+`submissions_update_scope`, `responses_write_for_scope`,
+`approvals_insert_scope`) sits alongside a *newer* generation that matches
+our migration-tracked policy names. Postgres combines multiple
+`PERMISSIVE` policies for the same command with logical OR, so the old,
+looser policy still grants access even where the newer-named policy looks
+tight — meaning simply applying migrations 0001-0009 to this project would
+**not** have been sufficient on its own; it would have left every
+untracked old policy/function/trigger in place, still OR'd in.
+
+**Confirmed open on production at audit time** (before the one fix
+described below):
+- **Defect 1c (critical, standalone)** — `profiles_admin_insert`'s `WITH
+  CHECK` was `is_admin() OR (id = auth.uid())`, no restriction on
+  `role_code` at all. Any authenticated user could self-insert a profile
+  with `role_code: 'admin'`.
+- **Defect 10** — old `submissions_insert_chapter` policy had no
+  `workflow_status` restriction; OR'd with the newer restricted policy, a
+  chapter could insert a pre-finalized submission directly.
+- **Defect 2** — old `responses_write_for_scope` policy had no status
+  restriction, and `enforce_response_integrity` (migration 0008) does not
+  exist on this project. A chapter could alter rubric responses/scores on
+  a submission in any status, not just drafts.
+- **Defect 7** — `approvals_insert_scope`'s check was just `is_admin() OR
+  (reviewer_profile_id = auth.uid())`, no assignment/role check, and
+  `enforce_approval_action_integrity` (migration 0008) does not exist on
+  this project. Anyone could insert a fabricated approval record for any
+  submission.
+- **Defects 3 / 4 (draft-approval-gap half)** — the live
+  `enforce_submission_transition_trigger` fires `BEFORE UPDATE` only (no
+  `BEFORE INSERT`, confirming defect 10 again independently) and its
+  function body is the pre-Phase-1 version: executives are exempted
+  outright (`if ... is_executive() then return new;`), and DD/RVP approval
+  never requires `old.workflow_status = 'submitted'`.
+- **Defect 4 (parallel-approval race half)** — no `record_review_approval`/
+  `record_review_return` RPC exists on this project; the app must still be
+  doing the old client-side read-then-write.
+- **Defect 6** — no role helper, old name or new, checks `profiles.is_active`
+  anywhere on this project.
+
+**Confirmed NOT a problem:** RLS is enabled (`relrowsecurity = true`) on
+every one of the 22 base tables — there is no table sitting fully open
+with zero row-level protection. The blanket `GRANT ALL` to
+`anon`/`authenticated`/`service_role` found on every table is the normal
+Supabase default (RLS, not table grants, is the intended boundary) and is
+not itself a finding.
+
+**Still unverified:** actual table/column structure. The five queries
+above compare functions, triggers, policies, and RLS flags — not column
+definitions — so it isn't yet known whether the live tables even have the
+same columns our migrations assume. Given how far the policy/function
+layer has diverged, this needs checking before designing any consolidation
+migration, since `apply-migrations.ts` may not run cleanly against this
+project's actual table shapes.
+
+**Fix applied directly to production, 2026-11-10 (narrowly scoped, by
+explicit operator instruction — "lock down `profiles_admin_insert` first,
+before anything else"):** the operator ran, in the Supabase SQL Editor,
+the exact `profiles_admin_insert` definition from migration 0008 (`drop
+policy if exists ... ; create policy ... with check (public.is_admin() or
+(id = auth.uid() and role_code = 'chapter' and district is null and region
+is null and is_active = true))`). Verified applied correctly via a
+follow-up `select ... from pg_policies` showing the new `with_check` text
+exactly matching. **This closes both halves of defect 1c** on production:
+the INSERT path by this fix, and the UPDATE path (an existing row's
+`role_code`/`district`/`region`/`is_active` being changed by a non-admin)
+was already blocked by the live, untracked `prevent_profile_self_escalation`
+trigger. No other policy, function, or trigger was touched. Every other
+defect listed above remains open on production as of this writing.
 
 ---
 
