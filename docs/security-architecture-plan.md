@@ -714,6 +714,60 @@ let a request through:
   correct end state, just no longer the blocking precondition for closing
   defects 2/3/4/7/10.
 
+### 7.3 Migration 0008 applied directly to production (2026-11-11)
+
+**Pre-flight check (read-only), run before applying anything:** since
+`0008`'s rewritten `enforce_submission_transition` requires a chapter's
+score-save (`recalc()`) to match a server-computed `max_score` exactly,
+any *existing* in-progress submission whose stored `max_score` didn't
+already match that formula would be locked out of further edits the
+moment the trigger landed. A query comparing every `draft`/`returned`
+submission's `max_score` against `sum(rubric_items.default_point_value)`
+for its rubric version found exactly one such row: a draft submission
+with `max_score = 0` against an expected `156` (created, like everything
+else in this audit, under the untracked pre-existing code path, which
+apparently defaults `max_score` to 0 at creation rather than the full
+rubric total). Fixed first, narrowly, with the same `service_role`
+`set_config` pattern `0009`'s reconciliation block uses (a plain `UPDATE`
+from the SQL Editor has no JWT claims, so it doesn't match the existing
+trigger's `auth.role() = 'service_role'` bypass otherwise): `update
+submissions set max_score = 156 where id = '5c0fc578-...'`. Re-ran the
+pre-flight query afterward — zero rows.
+
+**Migration applied:** the full, unmodified content of
+`0008_phase1_authorization_hardening.sql` — confirmed beforehand to
+contain zero `CREATE TABLE`/`ALTER TABLE` statements, consistent with
+§7.2's finding that the table layer was already compatible. Applied via
+the SQL Editor, by explicit operator instruction.
+
+**Verified applied correctly**, via three follow-up read-only queries:
+- `pg_policies` for `documents_insert` and `submissions_chapter_insert` —
+  both show the exact new `with_check` text.
+- `pg_trigger` for `submissions`/`submission_item_responses`/
+  `approval_actions` — `enforce_submission_transition_trigger` now fires
+  `BEFORE INSERT OR UPDATE` (previously `UPDATE`-only, confirmed in
+  §7.1); `enforce_response_integrity_trigger` and
+  `enforce_approval_action_integrity_trigger` now exist (confirmed absent
+  in §7.1). (One query attempt along the way returned zero rows due to a
+  mistake in how it matched schema-qualified table names, not an
+  application failure — corrected and re-run before treating the result
+  as real.)
+
+**This closes, on production: defects 1a, 2, 3, 4 (draft-approval-gap
+half — the race half was already closed by applying `0009`'s RPCs, see
+§7.2), 7, 10, 11, and partially 6** (the new-named role helpers
+`is_admin`/`is_executive`/`current_district`/`current_region`/
+`current_role` now check `is_active`; the untracked old-named twins
+`is_exec()`/`current_user_district()`/`current_user_region()` still don't
+— lower severity, read-scoping exposure for a deactivated exec/DD/RVP,
+not a write/escalation path).
+
+**Still open on production:** the remainder of defect 6 (the old-named
+helper twins), and the old untracked duplicate RLS policies themselves —
+no longer the operative gate for the write paths covered above, since
+the new triggers backstop them regardless of which policy let a request
+through, but not yet retired.
+
 ---
 
 ## 8. Open questions for the organization (not engineering decisions)
