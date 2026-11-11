@@ -609,14 +609,6 @@ with zero row-level protection. The blanket `GRANT ALL` to
 Supabase default (RLS, not table grants, is the intended boundary) and is
 not itself a finding.
 
-**Still unverified:** actual table/column structure. The five queries
-above compare functions, triggers, policies, and RLS flags — not column
-definitions — so it isn't yet known whether the live tables even have the
-same columns our migrations assume. Given how far the policy/function
-layer has diverged, this needs checking before designing any consolidation
-migration, since `apply-migrations.ts` may not run cleanly against this
-project's actual table shapes.
-
 **Fix applied directly to production, 2026-11-10 (narrowly scoped, by
 explicit operator instruction — "lock down `profiles_admin_insert` first,
 before anything else"):** the operator ran, in the Supabase SQL Editor,
@@ -629,8 +621,98 @@ exactly matching. **This closes both halves of defect 1c** on production:
 the INSERT path by this fix, and the UPDATE path (an existing row's
 `role_code`/`district`/`region`/`is_active` being changed by a non-admin)
 was already blocked by the live, untracked `prevent_profile_self_escalation`
-trigger. No other policy, function, or trigger was touched. Every other
-defect listed above remains open on production as of this writing.
+trigger. No other policy, function, or trigger was touched.
+
+### 7.2 Table/column structure comparison, and an urgent RPC fix (2026-11-11)
+
+**Method:** same as §7.1 — three more read-only queries
+(`information_schema.columns`, `pg_constraint` via `pg_get_constraintdef`,
+`pg_indexes`) run by the operator in the SQL Editor, diffed against a local
+database with all 9 migrations applied.
+
+**Result: the base table/column/constraint layer matches our migration
+history almost exactly.** Every column (name, type, nullability, default),
+every primary key, foreign key, unique constraint, and check constraint
+for every table our migrations define is identical between production and
+the local 9-migration baseline — including the `workflow_status`/review-
+status `CHECK` constraints, which hold the same allowed values on both
+sides. The only differences:
+- One entirely extra, untracked table, `system_contacts`, with its own
+  columns/constraints/indexes/RLS policy — appears in no migration file,
+  consistent with the same untracked-object pattern found in §7.1. Its
+  only policy grants read to any authenticated user; no write policy
+  exists for it at all (service_role-only writes). Not itself a security
+  concern, just another confirmed instance of out-of-band schema changes.
+- Seven redundant unique indexes on production (e.g.
+  `uq_chapter_user_links`, `uq_chapters_chapter_key`,
+  `uq_rubric_versions_code`) that duplicate an existing constraint-backed
+  unique index on the same columns. Harmless — extra write overhead only,
+  no functional difference.
+- Column *order* differs on two tables (`rubric_items`, 
+  `submission_item_responses`) — cosmetic only, confirms again that
+  production's columns were added via some ad hoc sequence of `ALTER
+  TABLE` statements rather than by replaying our migrations in order, but
+  doesn't affect anything the app or RLS relies on.
+
+**This meaningfully de-risks further remediation.** Migrations `0008` and
+`0009` contain zero `CREATE TABLE`/`ALTER TABLE` statements — confirmed by
+re-reading both files — only `create or replace function`, `drop trigger
+if exists ... ; create trigger ...`, and `drop policy if exists ... ;
+create policy ...`, all idempotent. Combined with the exact table/column
+match above, this means both migrations can very likely be applied to
+production's current state directly, without the "relation already
+exists" / column-mismatch errors a less-idempotent migration set would
+risk.
+
+**Urgent, time-sensitive finding surfaced by this session's own actions:**
+merging PR #10 to `main` deployed `src/lib/store/supabase.ts` code that
+calls `record_review_approval()`/`record_review_return()` — RPC functions
+that, per §7.1, did not exist on this Supabase project. Since Cloudflare
+Pages deploys every push to `main` as a production build, this created a
+real risk that the live app's approve/return actions would start failing
+outright (`function does not exist`) the moment that deploy went live,
+if production Cloudflare Pages is wired to this same Supabase project
+(still not confirmed either way — see §7's still-open Preview/Production
+separation item).
+
+**Fix applied directly to production, 2026-11-11 (by explicit operator
+instruction, given the urgency):** the full content of migration `0009`
+— both RPC functions, their grants, and the idempotent reconciliation
+block — applied via the SQL Editor. Nothing old or untracked was touched;
+both function names are new and unique. Verified applied correctly via a
+follow-up `select proname, pg_get_function_identity_arguments(oid) ...`
+confirming both functions now exist with the correct argument signatures.
+
+**Revised remediation-sequencing read, now that the table layer is known
+to be compatible:** applying migration `0008` directly to production
+would close most of the remaining defects even *before* any of the
+untracked old-generation duplicate policies are retired, because the
+trigger-level backstops it installs apply regardless of which RLS policy
+let a request through:
+- **Defects 2, 7, 10** would be substantively closed — `enforce_response_
+  integrity`, `enforce_approval_action_integrity`, and
+  `enforce_submission_transition`'s new `BEFORE INSERT` branch all
+  independently reject the bad outcome even if an old permissive RLS
+  policy still lets the request reach the table.
+- **Defects 3 and 4 (draft-gap)** would be closed outright — `create or
+  replace function enforce_submission_transition` takes effect on the
+  *existing* trigger immediately; no need to touch the trigger definition
+  itself.
+- **Defect 6 would only be partially closed.** `0008` adds `is_active`
+  checks to `is_admin`/`is_executive`/`current_district`/`current_region`/
+  `current_role`, which immediately benefits any old *or* new policy that
+  calls those exact names — but the untracked twin functions
+  (`is_exec()`, `current_user_district()`, `current_user_region()`) are
+  untouched by `0008` and would still skip the check wherever an old
+  policy calls them instead (mostly read-scoping for execs/DDs/RVPs —
+  information exposure to a deactivated account, not a write/escalation
+  path).
+- The old untracked duplicate policies themselves would still exist after
+  applying `0008` — they just stop being the operative gate for most
+  write paths, because the trigger backstops catch what they'd let
+  through. Fully retiring them (dropping by exact name) is still the
+  correct end state, just no longer the blocking precondition for closing
+  defects 2/3/4/7/10.
 
 ---
 
