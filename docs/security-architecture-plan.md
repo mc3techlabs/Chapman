@@ -768,6 +768,75 @@ no longer the operative gate for the write paths covered above, since
 the new triggers backstop them regardless of which policy let a request
 through, but not yet retired.
 
+### 7.4 Old-generation duplicate RLS policies retired (2026-11-11)
+
+**Before dropping anything**, each old policy whose scope wasn't a strict
+subset of its new-named counterpart was individually checked against the
+actual application code, not assumed redundant:
+- `cul_read_own_or_admin` (`chapter_user_links`) added executive-wide
+  visibility beyond `cul_read`. Grepped `src/` for every
+  `chapter_user_links` read: the only one (`profileAndSession()` in
+  `supabase.ts`) is already filtered to `profile_id = auth.uid()`, so
+  nothing in the app depends on the broader grant. Confirmed safe to drop
+  outright.
+- `assignments_read_for_scope` (`reviewer_assignments`) added two things
+  `ra_read` didn't have: executive visibility, and a chapter's own
+  members reading their chapter's assignment row. `src/routes/chapter.tsx`
+  calls `getReviewerAssignment(chapter.id)` on the chapter-facing page (the
+  "who is my reviewer" display) with no application-level role check —
+  it relies entirely on RLS. Dropping the old policy without replacing
+  that capability would have broken this page for chapter users. Fixed
+  first via `alter policy ra_read ... using (is_admin() OR is_executive()
+  OR district_director_profile_id = auth.uid() OR
+  regional_vice_president_profile_id = auth.uid() OR chapter_id IN
+  (select current_chapter_ids()))` — using the already-hardened
+  `current_chapter_ids()` (which requires `role_code = 'chapter'` and
+  `is_active = true`), tighter than the old policy's unguarded `EXISTS`
+  check. Verified via a follow-up `pg_policies` read showing the exact
+  new `using` clause before proceeding.
+- Every other old policy's extra reach was confirmed to already be
+  inherited by its new-named counterpart (e.g. `approvals_read_for_scope`'s
+  explicit `is_exec()` branch is redundant because `approvals_read`'s
+  `submission_id IN (select id from submissions)` already inherits
+  whatever `submissions_read`'s own RLS grants an executive — nested RLS,
+  not a separate code path), or was exactly the unrestricted half of a
+  defect already closed in §7.3 (`submissions_insert_chapter`,
+  `submissions_update_scope`, `responses_write_for_scope`,
+  `approvals_insert_scope`).
+
+**Applied:** 28 old-generation, untracked duplicate policies dropped by
+exact name across 17 tables, after the `ra_read` fix above. Full list in
+`supabase/migrations/` is not applicable here — these were never defined
+by any migration to begin with, so there was nothing to update there;
+this was purely a live cleanup of objects the migration history never
+created.
+
+**Verified applied correctly:** a `pg_policies` count-per-table query
+run immediately after showed every table at exactly the expected
+post-cleanup count (2 for most lookup/admin-write pairs, 3 for `profiles`,
+4 for `documents` and `submissions`, 1 for the untouched, untracked
+`system_contacts`) — matching the prediction made before running
+anything, with zero unexpected deviation. A follow-up read of `ra_read`'s
+actual `using` clause confirmed it exactly matches the intended fix.
+
+**Net effect:** the old untracked policy layer — the root structural
+finding of §7.1 — no longer exists on production. Every RLS policy on
+every table now matches what this repository's migrations define (with
+the sole exception of the untracked `system_contacts` table, left alone
+since nothing in this engagement's scope touches it). `prevent_profile_
+self_escalation` and its trigger were deliberately left untouched — they
+still provide real, necessary protection for the `profiles` UPDATE path
+and aren't legacy cruft.
+
+**Still open:** the remainder of defect 6 — `current_role_code()`,
+`current_user_district()`, `current_user_region()`, and `is_exec()` are
+now entirely unreferenced by any policy (confirmed: every policy that
+called them has been dropped or replaced), but the functions themselves
+still exist, unused. Not a security exposure any longer — nothing calls
+them — but a final cleanup (dropping the now-dead functions) remains
+available if wanted. Not yet attempted; §7's open Preview/Production
+Supabase-project-separation question also remains unresolved.
+
 ---
 
 ## 8. Open questions for the organization (not engineering decisions)
