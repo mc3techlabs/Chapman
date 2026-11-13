@@ -82,7 +82,21 @@ export interface Store {
   setResponse(
     submissionId: string,
     rubricItemId: string,
-    answer: AnswerCode
+    answer: AnswerCode,
+    /** The entered value for a fill_in item; omitted/undefined leaves it unset. */
+    responseValue?: string | null
+  ): Promise<void>;
+  /**
+   * Resolves every rubric item (for the chapter's own current rubric
+   * version) whose document_type_code matches a just-uploaded document to
+   * answer_code='yes' — chapter_upload and admin_upload items both earn
+   * their point this way, through the same setResponse() path a yes/no
+   * click uses, so scoring stays driven by one mechanism.
+   */
+  markUploadReceived(
+    chapterId: string,
+    documentTypeCode: string,
+    period: ReportingPeriod
   ): Promise<void>;
   submitReport(submissionId: string): Promise<void>;
   /** A chapter withdrawing its own submitted report back to draft - only valid while neither review lane has been acted on yet. */

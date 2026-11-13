@@ -27,6 +27,7 @@ function navFor(role: SessionUser["role"]): { group: string; items: NavItem[] }[
         items: [
           { href: "/admin/chapters", label: "Chapters & Import", icon: "▤" },
           { href: "/admin/documents", label: "Tax Documents", icon: "§" },
+          { href: "/admin/other-documents", label: "Other Documents", icon: "⌸" },
           { href: "/admin/special-events", label: "Special Event Checklists", icon: "◇" },
         ],
       },

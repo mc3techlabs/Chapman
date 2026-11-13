@@ -98,6 +98,8 @@ for (const v of raw.rubric as any[]) {
             default_point_value: it.default_point_value ?? 1,
             mandatory_penalty: 0,
             display_order: it.display_order,
+            scoring_type: it.scoring_type ?? "yes_no",
+            document_type_code: it.document_type_code || null,
           })),
         };
       }),
@@ -174,6 +176,7 @@ chapters.forEach((chapter, idx) => {
       answer_code: ans,
       awarded_points: pointsFor(item, ans),
       response_note: null,
+      response_value: null,
     });
   }
   const { finalScore, maxScore } = computeTotals(
@@ -452,7 +455,7 @@ export function createDemoStore(cookie: string | undefined): Store {
       return submissions.filter((s) => s.chapter_id === chapterId);
     },
 
-    async setResponse(submissionId, rubricItemId, answer) {
+    async setResponse(submissionId, rubricItemId, answer, responseValue) {
       const submission = submissionById(submissionId);
       if (!submission) return;
       const chapter = chapterById.get(submission.chapter_id)!;
@@ -460,18 +463,33 @@ export function createDemoStore(cookie: string | undefined): Store {
       const item = built.items.find((i) => i.id === rubricItemId);
       if (!item) return;
       const map = responsesBySubmission.get(submissionId) ?? new Map();
+      const existing = map.get(rubricItemId);
       map.set(rubricItemId, {
-        id: map.get(rubricItemId)?.id ?? `resp-${submissionId}-${rubricItemId}`,
+        id: existing?.id ?? `resp-${submissionId}-${rubricItemId}`,
         submission_id: submissionId,
         rubric_item_id: rubricItemId,
         answer_code: answer,
         awarded_points: pointsFor(item, answer),
         response_note: null,
+        response_value: responseValue !== undefined ? responseValue : existing?.response_value ?? null,
       });
       responsesBySubmission.set(submissionId, map);
       const { finalScore, maxScore } = computeTotals(built.items, [...map.values()]);
       submission.final_score = finalScore;
       submission.max_score = maxScore;
+    },
+
+    async markUploadReceived(chapterId, documentTypeCode, period) {
+      const chapter = chapterById.get(chapterId);
+      if (!chapter) return;
+      const built = rubricsByType[chapter.chapter_type_code];
+      if (!built) return;
+      const matches = built.items.filter((i) => i.document_type_code === documentTypeCode);
+      if (!matches.length) return;
+      const submission = await this.getOrCreateSubmission(chapterId, period);
+      for (const item of matches) {
+        await this.setResponse(submission.id, item.id, "yes");
+      }
     },
 
     async submitReport(submissionId) {

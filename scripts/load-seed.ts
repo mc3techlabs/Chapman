@@ -202,6 +202,8 @@ await upsert("rubric_items", items.map((r) => ({
   mandatory_penalty: 0,
   display_order: toInt(r.display_order),
   active: toBool(r.active),
+  scoring_type: r.scoring_type || "yes_no",
+  document_type_code: r.document_type_code || null,
 })));
 
 // 4. Chapters (skip rows with no district/region — surfaced, not silently lost)

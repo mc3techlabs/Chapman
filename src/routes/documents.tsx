@@ -7,7 +7,7 @@ import { validateUpload } from "../lib/session";
 
 export const documentsRoutes = new Hono<{ Bindings: any; Variables: any }>();
 
-type Category = "tax" | "special_event";
+type Category = "tax" | "special_event" | "other";
 
 const CATEGORY_META: Record<
   Category,
@@ -26,6 +26,13 @@ const CATEGORY_META: Record<
     lede: "Upload and track special event planning and after-action checklists.",
     intro:
       "This is a framework: the checklist format is intentionally not fixed yet. Add or edit document types (and their accepted formats) when the final format is decided — no code change needed.",
+  },
+  other: {
+    title: "Other Documents",
+    base: "/admin/other-documents",
+    lede: "GRIP submissions, bank account verification, and District/Regional/General fees confirmations.",
+    intro:
+      "Uploading here against a Chapman rubric document type also resolves the matching rubric item to \"Yes\" on the chapter's current report — this is the General Office's way to satisfy a Chapter Upload or Admin Upload item on a chapter's behalf.",
   },
 };
 
@@ -206,6 +213,7 @@ async function renderCategory(c: any, category: Category) {
 /* ---------------------------------------------------------------------- */
 documentsRoutes.get("/admin/documents", (c) => renderCategory(c, "tax"));
 documentsRoutes.get("/admin/special-events", (c) => renderCategory(c, "special_event"));
+documentsRoutes.get("/admin/other-documents", (c) => renderCategory(c, "other"));
 
 /* ---------------------------------------------------------------------- */
 /* Upload handler                                                         */
@@ -279,6 +287,9 @@ documentsRoutes.post("/documents/upload", async (c) => {
     reportingYear: period.reportingYear,
     notes: notes || null,
   });
+  // A no-op unless this document type satisfies a Chapter/Admin Upload
+  // rubric item on the chapter's current report.
+  await store.markUploadReceived(chapterId, documentTypeCode, period);
 
   return c.redirect(`${base}?ok=${encodeURIComponent(file.name)}`);
 });

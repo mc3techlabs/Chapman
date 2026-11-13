@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { App } from "../index";
 import { renderPage } from "../lib/render";
-import { getStore } from "../lib/store";
+import { getStore, getAdminClient } from "../lib/store";
 import { Badge, Callout, Card, Empty, Kpi, PageHead, Progress, ActionButton } from "../views/components";
 import {
   answerTone,
@@ -13,8 +13,9 @@ import {
   workflowLabel,
   workflowTone,
 } from "../lib/format";
-import { attachResponses, ANSWER_LABELS, isEligibleForExecutive, summarize } from "../lib/scoring";
+import { attachResponses, ANSWER_LABELS, isEligibleForExecutive, summarize, flattenItemsWithResponses } from "../lib/scoring";
 import type { AnswerCode } from "../lib/types";
+import { validateUpload } from "../lib/session";
 
 export const chapterRoutes = new Hono<{ Bindings: any; Variables: any }>();
 
@@ -220,6 +221,8 @@ chapterRoutes.get("/chapter/submission", async (c) => {
   const allItems = rubric.sections.flatMap((s) => s.subsections.flatMap((ss) => ss.items));
   const summary = summarize(allItems);
   const editable = ["draft", "returned"].includes(submission.workflow_status);
+  const docTypes = await store.listDocumentTypes();
+  const docTypeByCode = new Map(docTypes.map((t) => [t.code, t]));
   const canWithdraw =
     submission.workflow_status === "submitted" &&
     submission.district_review_status === "pending" &&
@@ -311,6 +314,7 @@ chapterRoutes.get("/chapter/submission", async (c) => {
               <div class="card" style="padding:4px 8px;">
                 {ss.items.map((item) => {
                   const ans = item.response?.answer_code;
+                  const scoringType = item.scoring_type || "yes_no";
                   return (
                     <div class="criterion">
                       <div>
@@ -321,7 +325,62 @@ chapterRoutes.get("/chapter/submission", async (c) => {
                           {item.item_type === "metric" ? "Reporting item" : "Activity item"}
                         </div>
                       </div>
-                      {editable ? (
+                      {scoringType === "fill_in" ? (
+                        editable ? (
+                          <form method="post" action="/chapter/submission/fill-in" class="row" style="gap:6px;">
+                            <input type="hidden" name="submissionId" value={submission.id} />
+                            <input type="hidden" name="itemId" value={item.id} />
+                            <input
+                              type="text"
+                              name="value"
+                              value={item.response?.response_value ?? ""}
+                              placeholder="e.g. 75% or 12"
+                              style="width:140px;"
+                            />
+                            <button class="btn secondary small" type="submit">Save</button>
+                          </form>
+                        ) : (
+                          <span class={`badge ${answerTone(ans)}`}>
+                            {item.response?.response_value || "Not answered"}
+                          </span>
+                        )
+                      ) : scoringType === "chapter_upload" ? (
+                        ans === "yes" ? (
+                          <span class="row" style="gap:8px;align-items:center;">
+                            <Badge tone="green">Uploaded</Badge>
+                            <a class="tiny" href="/chapter/documents">View</a>
+                          </span>
+                        ) : editable ? (
+                          <form
+                            method="post"
+                            action="/chapter/submission/upload"
+                            enctype="multipart/form-data"
+                            class="row"
+                            style="gap:6px;"
+                          >
+                            <input type="hidden" name="submissionId" value={submission.id} />
+                            <input type="hidden" name="itemId" value={item.id} />
+                            <input
+                              type="file"
+                              name="file"
+                              required
+                              accept={(docTypeByCode.get(item.document_type_code ?? "")?.allowed_extensions ?? [])
+                                .map((e) => `.${e}`)
+                                .join(",")}
+                              style="max-width:220px;"
+                            />
+                            <button class="btn secondary small" type="submit">Upload</button>
+                          </form>
+                        ) : (
+                          <Badge tone="amber">Not uploaded</Badge>
+                        )
+                      ) : scoringType === "admin_upload" ? (
+                        <span class="row" style="gap:8px;align-items:center;">
+                          <Badge tone={ans === "yes" ? "green" : "amber"}>
+                            {ans === "yes" ? "Received" : "Pending General Office"}
+                          </Badge>
+                        </span>
+                      ) : editable ? (
                         <div class="answer-set">
                           {(["yes", "no", "na"] as AnswerCode[]).map((code) => (
                             <form method="post" action="/chapter/submission/answer">
@@ -372,6 +431,109 @@ chapterRoutes.post("/chapter/submission/answer", async (c) => {
       return c.redirect(`/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not save that answer.")}`);
     }
   }
+  return c.redirect("/chapter/submission");
+});
+
+chapterRoutes.post("/chapter/submission/fill-in", async (c) => {
+  const ctx = await requireChapter(c);
+  if (ctx instanceof Response) return ctx;
+  const form = await c.req.formData();
+  const submissionId = String(form.get("submissionId"));
+  const itemId = String(form.get("itemId"));
+  const value = String(form.get("value") ?? "").trim();
+  const store = getStore(c);
+  const submission = await store.getSubmission(submissionId);
+  if (submission && ["draft", "returned"].includes(submission.workflow_status)) {
+    try {
+      await store.setResponse(submissionId, itemId, value ? "yes" : "no", value || null);
+    } catch (e: any) {
+      return c.redirect(`/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not save that value.")}`);
+    }
+  }
+  return c.redirect("/chapter/submission");
+});
+
+/**
+ * A chapter uploading its own evidence for a "Chapter Upload" rubric item
+ * (e.g. bank account verification, GRIP submission, chapter audit, 990).
+ * Mirrors the admin upload flow in documents.tsx, scoped to the chapter's
+ * own session and to exactly the document type its chosen rubric item needs.
+ */
+chapterRoutes.post("/chapter/submission/upload", async (c) => {
+  const ctx = await requireChapter(c);
+  if (ctx instanceof Response) return ctx;
+  const { chapter } = ctx;
+  const form = await c.req.formData();
+  const submissionId = String(form.get("submissionId"));
+  const itemId = String(form.get("itemId"));
+  const store = getStore(c);
+
+  const submission = await store.getSubmission(submissionId);
+  if (!submission || !["draft", "returned"].includes(submission.workflow_status)) {
+    return c.redirect("/chapter/submission");
+  }
+  const detail = await store.getSubmissionDetail(submissionId);
+  const item = detail
+    ? flattenItemsWithResponses(detail.rubric).find((i) => i.id === itemId)
+    : null;
+  if (!item || item.scoring_type !== "chapter_upload" || !item.document_type_code) {
+    return c.redirect(
+      `/chapter/submission?err=${encodeURIComponent("That item does not accept an upload.")}`
+    );
+  }
+
+  const docTypes = await store.listDocumentTypes();
+  const docType = docTypes.find((t) => t.code === item.document_type_code);
+  if (!docType) {
+    return c.redirect(`/chapter/submission?err=${encodeURIComponent("Unknown document type.")}`);
+  }
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return c.redirect(`/chapter/submission?err=${encodeURIComponent("No file provided.")}`);
+  }
+  const check = validateUpload({ name: file.name, size: file.size, type: file.type }, docType);
+  if (!check.ok) {
+    return c.redirect(`/chapter/submission?err=${encodeURIComponent(check.error)}`);
+  }
+
+  const period = await store.getCurrentPeriod();
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `${chapter.chapter_key}/${docType.code}/${Date.now()}-${safeName}`;
+
+  const admin = getAdminClient((c.env ?? {}) as any);
+  const bucket = ((c.env ?? {}) as any).DOCUMENTS_BUCKET || "chapman-documents";
+  if (admin) {
+    const bytes = await file.arrayBuffer();
+    const { error } = await admin.storage.from(bucket).upload(storagePath, bytes, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
+    if (error) {
+      return c.redirect(
+        `/chapter/submission?err=${encodeURIComponent("Storage upload failed: " + error.message)}`
+      );
+    }
+  }
+
+  try {
+    await store.createDocument({
+      chapterId: chapter.id,
+      documentTypeCode: docType.code,
+      fileName: file.name,
+      storagePath,
+      contentType: file.type || null,
+      sizeBytes: file.size,
+      termCode: period.termCode,
+      reportingYear: period.reportingYear,
+      notes: null,
+    });
+    await store.markUploadReceived(chapter.id, docType.code, period);
+  } catch (e: any) {
+    return c.redirect(
+      `/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not record that upload.")}`
+    );
+  }
+
   return c.redirect("/chapter/submission");
 });
 
