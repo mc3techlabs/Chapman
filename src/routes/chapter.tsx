@@ -527,7 +527,7 @@ chapterRoutes.post("/chapter/submission/upload", async (c) => {
       reportingYear: period.reportingYear,
       notes: null,
     });
-    await store.markUploadReceived(chapter.id, docType.code, period);
+    await store.markUploadReceived(chapter.id, docType.code, period, "chapter");
   } catch (e: any) {
     return c.redirect(
       `/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not record that upload.")}`

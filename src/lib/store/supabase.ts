@@ -420,16 +420,18 @@ export function createSupabaseStore(
       await recalc(client, submissionId);
     },
 
-    async markUploadReceived(chapterId, documentTypeCode, period) {
+    async markUploadReceived(chapterId, documentTypeCode, period, uploadedBy) {
       const chapter = await this.getChapter(chapterId);
       if (!chapter) return;
       const tree = await this.getRubricForType(chapter.chapter_type_code);
       if (!tree) return;
+      const expectedScoringType = uploadedBy === "chapter" ? "chapter_upload" : "admin_upload";
       const { data: items } = await client
         .from("rubric_items")
         .select("id")
         .eq("rubric_version_id", tree.version.id)
         .eq("document_type_code", documentTypeCode)
+        .eq("scoring_type", expectedScoringType)
         .eq("active", true);
       if (!items?.length) return;
       const submission = await this.getOrCreateSubmission(chapterId, period);

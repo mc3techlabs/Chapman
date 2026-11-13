@@ -479,12 +479,15 @@ export function createDemoStore(cookie: string | undefined): Store {
       submission.max_score = maxScore;
     },
 
-    async markUploadReceived(chapterId, documentTypeCode, period) {
+    async markUploadReceived(chapterId, documentTypeCode, period, uploadedBy) {
       const chapter = chapterById.get(chapterId);
       if (!chapter) return;
       const built = rubricsByType[chapter.chapter_type_code];
       if (!built) return;
-      const matches = built.items.filter((i) => i.document_type_code === documentTypeCode);
+      const expectedScoringType = uploadedBy === "chapter" ? "chapter_upload" : "admin_upload";
+      const matches = built.items.filter(
+        (i) => i.document_type_code === documentTypeCode && i.scoring_type === expectedScoringType
+      );
       if (!matches.length) return;
       const submission = await this.getOrCreateSubmission(chapterId, period);
       for (const item of matches) {
