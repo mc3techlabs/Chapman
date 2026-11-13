@@ -35,6 +35,7 @@ function navFor(role: SessionUser["role"]): { group: string; items: NavItem[] }[
         items: [
           { href: "/admin/rollups", label: "National Rollups", icon: "◔" },
           { href: "/admin/windows", label: "Reporting Windows", icon: "◷" },
+          { href: "/admin/submissions", label: "Submissions", icon: "▥" },
         ],
       },
     ];

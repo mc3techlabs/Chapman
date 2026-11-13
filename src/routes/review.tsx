@@ -336,9 +336,11 @@ async function renderReviewDetail(c: any, role: ReviewerRole, submissionId: stri
     role === "executive_director"
       ? bothApproved && submission.workflow_status !== "finalized"
       : submission.workflow_status !== "finalized";
+  const err = c.req.query("err");
 
   const body = (
     <>
+      {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
       <PageHead
         title={submission.chapter.chapter_name}
         lede={
@@ -481,18 +483,24 @@ async function handleDecision(c: any, role: ReviewerRole, submissionId: string) 
   const decision = String(form.get("decision") ?? "");
   const comment = String(form.get("comment") ?? "");
   const store = getStore(c);
-  if (decision === "approve") {
-    if (role === "executive_director") {
-      const sub = await store.getSubmission(submissionId);
-      if (sub && !isEligibleForExecutive(sub)) {
-        return c.redirect(`/national/approvals/${submissionId}`);
+  const detailHref =
+    role === "executive_director" ? `/national/approvals/${submissionId}` : `${LANE[role].base}/review/${submissionId}`;
+  try {
+    if (decision === "approve") {
+      if (role === "executive_director") {
+        const sub = await store.getSubmission(submissionId);
+        if (sub && !isEligibleForExecutive(sub)) {
+          return c.redirect(detailHref);
+        }
+      }
+      await store.approve(submissionId, role, comment || undefined);
+    } else if (decision === "return") {
+      if (role === "district_director" || role === "rvp") {
+        await store.returnSubmission(submissionId, role, comment || "Returned for revision");
       }
     }
-    await store.approve(submissionId, role, comment || undefined);
-  } else if (decision === "return") {
-    if (role === "district_director" || role === "rvp") {
-      await store.returnSubmission(submissionId, role, comment || "Returned for revision");
-    }
+  } catch (e: any) {
+    return c.redirect(`${detailHref}?err=${encodeURIComponent(e?.message ?? "Could not record that decision.")}`);
   }
   return c.redirect(role === "executive_director" ? "/national/approvals" : `${LANE[role].base}/review`);
 }

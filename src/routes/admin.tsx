@@ -2,7 +2,17 @@ import { Hono } from "hono";
 import { renderPage } from "../lib/render";
 import { getStore } from "../lib/store";
 import { Badge, Callout, Card, Empty, Kpi, MiniBar, PageHead } from "../views/components";
-import { fmtBytes, fmtDate, fmtPercent, fmtNumber, periodLabel } from "../lib/format";
+import {
+  fmtBytes,
+  fmtDate,
+  fmtPercent,
+  fmtNumber,
+  periodLabel,
+  reviewLabel,
+  reviewTone,
+  workflowLabel,
+  workflowTone,
+} from "../lib/format";
 import { parseCsv, pickField, toCsv, csvResponse } from "../lib/csv";
 import { normalizeChapterType } from "../lib/session";
 import { importTaxCompliance, REQUIRED_TAX_COLUMNS } from "../lib/taxImport";
@@ -879,4 +889,107 @@ adminRoutes.post("/admin/windows/create", async (c) => {
     </>
   );
   return renderPage(c, { title: "Window created", session, body });
+});
+
+/* ---------------------------------------------------------------------- */
+/* Submissions (admin override for the Phase 3 hard reporting deadline)   */
+/* ---------------------------------------------------------------------- */
+adminRoutes.get("/admin/submissions", async (c) => {
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const { session, canWrite } = ctx;
+  const store = getStore(c);
+  const period = await store.getCurrentPeriod();
+  const submissions = await store.listVisibleSubmissions(period);
+  const ok = c.req.query("ok");
+  const err = c.req.query("err");
+
+  const body = (
+    <>
+      <PageHead
+        title="Submissions"
+        lede={
+          <>
+            {periodLabel(period.termCode, period.reportingYear)} — every submission visible to an
+            admin. Once a window's closing date has passed, chapters and reviewers can no longer
+            change a submission in it; <strong>Reopen</strong> is the admin override.
+          </>
+        }
+      />
+      {ok ? <Callout tone="green">{decodeURIComponent(ok)}</Callout> : null}
+      {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
+      <Card>
+        {submissions.length === 0 ? (
+          <Empty>No submissions for this period yet.</Empty>
+        ) : (
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Chapter</th>
+                  <th>Status</th>
+                  <th>Lanes</th>
+                  <th class="num">Score</th>
+                  <th>Updated</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.map((s: any) => (
+                  <tr>
+                    <td>
+                      <strong>{s.chapter?.chapter_name ?? "—"}</strong>
+                      <div class="meta">
+                        {s.chapter?.district} · {s.chapter?.region}
+                      </div>
+                    </td>
+                    <td>
+                      <Badge tone={workflowTone(s.workflow_status)}>{workflowLabel(s.workflow_status)}</Badge>
+                    </td>
+                    <td>
+                      <span class="row" style="gap:6px;">
+                        <Badge tone={reviewTone(s.district_review_status)}>
+                          DD {reviewLabel(s.district_review_status)}
+                        </Badge>
+                        <Badge tone={reviewTone(s.regional_review_status)}>
+                          RVP {reviewLabel(s.regional_review_status)}
+                        </Badge>
+                      </span>
+                    </td>
+                    <td class="num">
+                      {s.final_score} / {s.max_score}
+                    </td>
+                    <td class="small muted">{fmtDate(s.updated_at)}</td>
+                    <td>
+                      {canWrite && s.workflow_status !== "draft" ? (
+                        <form method="post" action={`/admin/submissions/${s.id}/reopen`}>
+                          <button class="btn secondary" type="submit">
+                            Reopen
+                          </button>
+                        </form>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </>
+  );
+  return renderPage(c, { title: "Submissions", session, body });
+});
+
+adminRoutes.post("/admin/submissions/:id/reopen", async (c) => {
+  const session = await requireAdmin(c);
+  if (session instanceof Response) return session;
+  const store = getStore(c);
+  const id = c.req.param("id");
+  try {
+    await store.reopenSubmission(id, "Reopened by admin past the reporting deadline.");
+    return c.redirect(`/admin/submissions?ok=${encodeURIComponent("Submission reopened — it is back in the returned state so the chapter can resubmit.")}`);
+  } catch (e: any) {
+    return c.redirect(`/admin/submissions?err=${encodeURIComponent(e?.message ?? "Could not reopen that submission.")}`);
+  }
 });
