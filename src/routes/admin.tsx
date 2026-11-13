@@ -672,11 +672,24 @@ adminRoutes.get("/admin/rubrics", async (c) => {
                 <span class="tiny" style="font-weight:600;">{count} items</span>
               </div>
               {s.subsections.map((ss: any) => (
-                <div class="queue-item">
-                  <div>
-                    <strong>{ss.subsection_name}</strong>
-                    <div class="meta">{ss.items.length} criteria</div>
-                  </div>
+                <div style="padding:10px 0;border-bottom:1px solid var(--line);">
+                  <strong>{ss.subsection_name}</strong>
+                  {ss.items.map((item: any) => (
+                    <div class="criterion">
+                      <div>
+                        <span class="code">{item.criterion_code}</span>
+                        {item.is_required ? <span class="req">Required</span> : null}
+                        <div>{item.criterion_text}</div>
+                        <div class="type">
+                          {item.item_type === "metric" ? "Reporting item" : "Activity item"} ·{" "}
+                          {item.default_point_value} pt{item.default_point_value === 1 ? "" : "s"}
+                          {item.is_required && item.mandatory_penalty
+                            ? ` · ${item.mandatory_penalty} pt${item.mandatory_penalty === 1 ? "" : "s"} if No`
+                            : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>
