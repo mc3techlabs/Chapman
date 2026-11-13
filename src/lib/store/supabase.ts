@@ -414,9 +414,10 @@ export function createSupabaseStore(
         awarded_points: awarded,
       };
       if (responseValue !== undefined) payload.response_value = responseValue;
-      await client.from("submission_item_responses").upsert(payload, {
+      const { error } = await client.from("submission_item_responses").upsert(payload, {
         onConflict: "submission_id,rubric_item_id",
       });
+      if (error) throw new Error(error.message);
       await recalc(client, submissionId);
     },
 
