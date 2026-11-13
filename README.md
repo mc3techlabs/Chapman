@@ -33,6 +33,7 @@ existing Supabase project by setting environment variables — no code changes r
 | Deployed to Cloudflare | ✅ **Live** — https://chapman-portal.pages.dev |
 | Attached to your Supabase DB | ✅ Attached — schema + seed applied, secrets set, auth verified |
 | Admin Access console (logins) | ✅ Live — chapter bulk-provision + credentials sheet, reviewer invites |
+| Authorization/RLS hardening | ✅ Phases 0-2 merged and applied to production; see `docs/security-architecture-plan.md` |
 
 ---
 
@@ -237,7 +238,12 @@ explore every role. Demo personas (set via `/demo/persona`):
 Full walkthrough: [`supabase/SETUP.md`](supabase/SETUP.md). Short version:
 
 1. **Schema** — `SUPABASE_DB_URL="postgresql://…" npm run db:migrate`
-   (applies `0001_schema.sql`, `0002_rls_policies.sql`, `0003_reporting_views.sql`).
+   (applies every file in `supabase/migrations/` in order — schema, RLS,
+   reporting views, and every hardening migration since). Prefer the
+   one-shot `supabase/bootstrap.sql` path instead if you don't want to hand
+   over the DB password; see `supabase/SETUP.md` for both, plus
+   `npm run drift-check`, a read-only tool for confirming a project actually
+   matches the repo.
 2. **Seed** — `SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… npm run db:seed`
    (real 879-chapter roster, 300 rubric items, lookups, document types).
 3. **Storage** — create a **private** bucket `chapman-documents`.
@@ -281,7 +287,11 @@ Full walkthrough: [`supabase/SETUP.md`](supabase/SETUP.md). Short version:
 - **Project name**: `chapman-portal`
 - **Status**: ✅ **Live** — attached to Supabase (`/health` → `mode: supabase`)
 - **Build output**: `dist/` (`_worker.js` + `static/`)
-- **Last updated**: 2026-10-03
+- **Security**: production's RLS/trigger/function layer has been audited and
+  reconciled against this repo's migrations — see
+  [`docs/security-architecture-plan.md`](docs/security-architecture-plan.md)
+  for the defect inventory, what's closed, and what's still open
+- **Last updated**: 2026-11-13
 
 ### Going live (Supabase attached)
 
@@ -289,7 +299,7 @@ Full walkthrough: [`supabase/SETUP.md`](supabase/SETUP.md). Short version:
 2. Set the four secrets on the Pages project:
 
    ```bash
-   echo "https://kqmudztvvvnldttklstc.supabase.co" | npx wrangler pages secret put SUPABASE_URL --project-name chapman-portal
+   echo "https://<your-project-ref>.supabase.co" | npx wrangler pages secret put SUPABASE_URL --project-name chapman-portal
    echo "<anon-key>"      | npx wrangler pages secret put SUPABASE_ANON_KEY --project-name chapman-portal
    echo "<service-role>"  | npx wrangler pages secret put SUPABASE_SERVICE_ROLE_KEY --project-name chapman-portal
    echo "chapman-documents" | npx wrangler pages secret put DOCUMENTS_BUCKET --project-name chapman-portal
