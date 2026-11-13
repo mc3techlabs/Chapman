@@ -7,7 +7,7 @@ import { parseCsv, pickField, toCsv, csvResponse } from "../lib/csv";
 import { normalizeChapterType } from "../lib/session";
 import { importTaxCompliance, REQUIRED_TAX_COLUMNS } from "../lib/taxImport";
 import * as XLSX from "xlsx";
-import type { Chapter } from "../lib/types";
+import type { Chapter, RubricTree } from "../lib/types";
 
 export const adminRoutes = new Hono<{ Bindings: any; Variables: any }>();
 
@@ -705,6 +705,7 @@ adminRoutes.get("/admin/rubrics", async (c) => {
       <PageHead
         title="Rubrics"
         lede="Versioned by chapter type and fraternal year. Submissions freeze the rubric version at submit time."
+        actions={<a class="btn secondary" href="/admin/rubrics/export">Export Excel</a>}
       />
       <div class="grid grid-2">
         <Card title={`Collegiate — ${college?.version.version_name ?? "not configured"} (${college?.item_count ?? 0} items)`}>
@@ -725,6 +726,76 @@ adminRoutes.get("/admin/rubrics", async (c) => {
     </>
   );
   return renderPage(c, { title: "Rubrics", session, body });
+});
+
+/** Flattens a rubric tree into one row per criterion, for the Excel export. */
+function rubricRows(tree: RubricTree | null): Record<string, unknown>[] {
+  if (!tree) return [];
+  const rows: Record<string, unknown>[] = [];
+  for (const s of tree.sections) {
+    for (const ss of s.subsections) {
+      for (const item of ss.items) {
+        rows.push({
+          Section: s.section_name,
+          Subsection: ss.subsection_name,
+          Code: item.criterion_code,
+          Criterion: item.criterion_text,
+          Type: item.item_type === "metric" ? "Reporting item" : "Activity item",
+          Points: item.default_point_value,
+          Required: item.is_required ? "Yes" : "No",
+          "Penalty if No": item.is_required ? item.mandatory_penalty : "",
+        });
+      }
+    }
+  }
+  return rows;
+}
+
+const RUBRIC_EXPORT_COLUMNS = [
+  "Section",
+  "Subsection",
+  "Code",
+  "Criterion",
+  "Type",
+  "Points",
+  "Required",
+  "Penalty if No",
+];
+
+adminRoutes.get("/admin/rubrics/export", async (c) => {
+  const ctx = await requireAdminView(c);
+  if (ctx instanceof Response) return ctx;
+  const store = getStore(c);
+  const [college, alumni] = await Promise.all([
+    store.getRubricForType("collegiate"),
+    store.getRubricForType("alumni"),
+  ]);
+
+  const workbook = XLSX.utils.book_new();
+  const addSheet = (name: string, tree: RubricTree | null) => {
+    const sheet = XLSX.utils.json_to_sheet(rubricRows(tree), { header: RUBRIC_EXPORT_COLUMNS });
+    sheet["!cols"] = [
+      { wch: 30 }, // Section
+      { wch: 30 }, // Subsection
+      { wch: 8 }, // Code
+      { wch: 70 }, // Criterion
+      { wch: 14 }, // Type
+      { wch: 8 }, // Points
+      { wch: 10 }, // Required
+      { wch: 14 }, // Penalty if No
+    ];
+    XLSX.utils.book_append_sheet(workbook, sheet, name);
+  };
+  addSheet("Collegiate", college);
+  addSheet("Alumni", alumni);
+
+  const buffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+  return new Response(buffer, {
+    headers: {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Disposition": 'attachment; filename="chapman-rubrics.xlsx"',
+    },
+  });
 });
 
 /* ---------------------------------------------------------------------- */
