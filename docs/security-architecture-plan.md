@@ -450,6 +450,49 @@ locally verified, NOT yet verified against a real Supabase project.**
   against a real Supabase project).
 
 ### Phase 3 — Operational hardening
+
+**Status: started 2026-11-13.** This phase's items split into three kinds:
+work that needed no external decision (done below), work gated on the
+organization's own answer to one of §8's open questions, and checks that
+only the project owner can run (dashboard-only settings, or settings this
+session's sandbox has no network path to query — see §7.1's method note).
+- **Done:** `README.md` and `supabase/SETUP.md` rewritten against the
+  actual current scripts, not from memory of what should be true (review
+  item 9). Fixed: both docs described the schema step as applying only
+  `0001`-`0003`, when `supabase/migrations/` now has nine files and
+  `bootstrap.sql` is a generated artifact of all of them (`npm run
+  gen:bootstrap`). `SETUP.md` also carried a stale callout from the
+  project's original onboarding claiming its one-shot bootstrap
+  "converges in place" a prior scaffold — written before this entire
+  audit (§7) found that claim to be false in the specific way that
+  mattered: an old, untracked, more-permissive policy generation survived
+  right alongside the new one, because the bootstrap only ever creates/
+  replaces objects it knows about by name. Replaced with an accurate
+  caveat and a pointer to `npm run drift-check`, documented for the first
+  time in `SETUP.md` itself (previously only ever run manually, never
+  written up for a future operator to find). Also removed a real Supabase
+  project ref that was hardcoded in both docs' example commands — not a
+  credential by itself, but there's no reason to commit one project's
+  specific ref into docs meant to describe attaching *any* project.
+- **Blocked on an organizational decision (§8):** defect 8's shape (hard
+  rule vs. dashboard indicator) depends on whether reporting deadlines
+  should be hard-enforced; the JWT/session TTL and MFA work for admin/
+  executive accounts depends on what posture the organization actually
+  wants for its most privileged roles; how much of defect 1a's residual
+  blast radius matters depends on whether public self-service signup is
+  required at all. Asked directly, not assumed — see the conversation for
+  the live answers once given.
+- **Needs the project owner, not this session:** JWT/session TTL, public-
+  signup setting, MFA enforcement, Storage bucket privacy, and backup/PITR
+  configuration are dashboard-only settings (Supabase Authentication/
+  Storage/Database pages) this session cannot read directly. Storage
+  bucket privacy is the one exception — `select id, name, public from
+  storage.buckets;` is a plain read-only query, so it can go through the
+  same paste-and-report process §7.1 already established, once asked for.
+  Preview/Production Cloudflare Pages environment separation is a
+  Cloudflare dashboard check (Pages project → Settings → Environment
+  variables), not a Supabase one.
+
 Closes defect 8 plus the Step-3 deployment unknowns this plan depends on
 being resolved, not assumed:
 - Reporting-deadline enforcement, *if* the organization confirms deadlines
