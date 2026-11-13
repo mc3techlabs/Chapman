@@ -828,14 +828,43 @@ self_escalation` and its trigger were deliberately left untouched — they
 still provide real, necessary protection for the `profiles` UPDATE path
 and aren't legacy cruft.
 
-**Still open:** the remainder of defect 6 — `current_role_code()`,
-`current_user_district()`, `current_user_region()`, and `is_exec()` are
-now entirely unreferenced by any policy (confirmed: every policy that
-called them has been dropped or replaced), but the functions themselves
-still exist, unused. Not a security exposure any longer — nothing calls
-them — but a final cleanup (dropping the now-dead functions) remains
-available if wanted. Not yet attempted; §7's open Preview/Production
-Supabase-project-separation question also remains unresolved.
+**Still open (at the time):** the remainder of defect 6 — `current_role_code()`,
+`current_user_district()`, `current_user_region()`, and `is_exec()` were
+unreferenced by any policy but still existed, unused.
+
+### 7.5 Orphaned helper functions dropped — defect 6 fully closed (2026-11-13)
+
+**Before dropping anything**, three read-only sweeps confirmed no other
+function body, view definition, or RLS policy anywhere in the `public`
+schema still called `current_role_code()`, `current_user_district()`,
+`current_user_region()`, or `is_exec()` — not just policies (already
+known clean from §7.4), but every function's `prosrc` and every view's
+definition too.
+
+**Applied:** `drop function if exists` for all four (each a simple,
+single-signature, no-argument function — no overload ambiguity to
+consider).
+
+**Verified:** a follow-up `pg_proc` query for all four names by name
+returned zero rows.
+
+**This closes defect 6 completely.** Every role-scoping helper that
+exists on production now — `current_role()`, `current_district()`,
+`current_region()`, `is_admin()`, `is_admin_readonly()`, `is_executive()`,
+`current_chapter_ids()` — requires `profiles.is_active = true`; there is
+no remaining code path, old or new, that can resolve a deactivated
+account's role/scope.
+
+**Status of the full defect inventory (§2) on production, as of this
+entry:** defects 1a, 1b (unverified, lower priority — see §7), 1c, 2, 3,
+4 (both halves), 6, 7, 10, 11 are closed. Defect 5 and defect 9 were
+code/tooling fixes (Phase 0/1) that don't have a "closed on production"
+state distinct from the PR merge itself. Defect 8 (Phase 3) is
+unstarted. The remaining open items are the Preview/Production
+Supabase-project-separation question and the rest of §7's real-Supabase
+unknowns (JWT/session TTL, public-signup setting, MFA posture, Storage
+bucket privacy, backup/PITR configuration) — none of which this session
+has the access to verify.
 
 ---
 
