@@ -113,6 +113,8 @@ export interface ReviewerAssignment {
   regionalVp: ReviewerRef | null;
 }
 
+export type ScoringType = "yes_no" | "fill_in" | "chapter_upload" | "admin_upload";
+
 export interface RubricItem {
   id: string;
   rubric_version_id: string;
@@ -125,6 +127,10 @@ export interface RubricItem {
   default_point_value: number;
   mandatory_penalty: number;
   display_order: number;
+  /** How the item's point is earned — direct answer, an entered value, or a document upload. */
+  scoring_type: ScoringType;
+  /** Set iff scoring_type is chapter_upload/admin_upload — the document_types.code it needs. */
+  document_type_code: string | null;
 }
 
 export interface RubricSubsection {
@@ -182,6 +188,8 @@ export interface ItemResponse {
   answer_code: AnswerCode;
   awarded_points: number;
   response_note: string | null;
+  /** The entered value for a fill_in item (a percentage, a count, free text). Null otherwise. */
+  response_value: string | null;
 }
 
 export interface ApprovalAction {

@@ -193,11 +193,13 @@ on conflict (rubric_section_id, subsection_code) do update set
 insert into public.rubric_items (
   rubric_version_id, rubric_section_id, rubric_subsection_id,
   criterion_code, criterion_text, item_type, is_required,
-  default_point_value, mandatory_penalty, display_order, active
+  default_point_value, mandatory_penalty, display_order, active,
+  scoring_type, document_type_code
 )
 select rv.id, rs.id, rsub.id,
        v.criterion_code, v.criterion_text, v.item_type, v.is_required,
-       v.default_point_value, 0, v.display_order, v.active
+       v.default_point_value, 0, v.display_order, v.active,
+       v.scoring_type, v.document_type_code
 from (values
   ${valRows(items, [
     (r) => L(r.rubric_version_code),
@@ -210,9 +212,12 @@ from (values
     (r) => I(r.default_point_value, 1),
     (r) => I(r.display_order),
     (r) => B(r.active),
+    (r) => L(r.scoring_type || "yes_no"),
+    (r) => LN(r.document_type_code),
   ])}
 ) as v(rubric_version_code, section_code, subsection_code, criterion_code, criterion_text,
-       item_type, is_required, default_point_value, display_order, active)
+       item_type, is_required, default_point_value, display_order, active,
+       scoring_type, document_type_code)
 join public.rubric_versions rv on rv.version_code = v.rubric_version_code
 join public.rubric_sections rs on rs.rubric_version_id = rv.id and rs.section_code = v.section_code
 join public.rubric_subsections rsub on rsub.rubric_section_id = rs.id and rsub.subsection_code = v.subsection_code
@@ -341,13 +346,15 @@ const sql =
   "-- ============================ SEED DATA ==================================\n\n" +
   lookups() +
   "\n" +
+  // Must precede rubric(): rubric_items.document_type_code (0011) carries a
+  // foreign key into document_types.
+  documents() +
+  "\n" +
   rubric() +
   "\n" +
   chapters() +
   "\n" +
   windows() +
-  "\n" +
-  documents() +
   footer;
 
 writeFileSync(OUT, sql, "utf8");

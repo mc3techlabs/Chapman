@@ -4,10 +4,11 @@ import { getStore, getAdminClient } from "../lib/store";
 import { Badge, Callout, Card, Empty, Kpi, PageHead } from "../views/components";
 import { fmtBytes, fmtDate } from "../lib/format";
 import { validateUpload } from "../lib/session";
+import { flattenItems } from "../lib/scoring";
 
 export const documentsRoutes = new Hono<{ Bindings: any; Variables: any }>();
 
-type Category = "tax" | "special_event";
+type Category = "tax" | "special_event" | "other";
 
 const CATEGORY_META: Record<
   Category,
@@ -18,7 +19,7 @@ const CATEGORY_META: Record<
     base: "/admin/documents",
     lede: "Upload and track chapter tax filings — 990s, audits, returns and foundation filings.",
     intro:
-      "Documents filed here attach to a chapter and the current reporting period. Formats and size limits come from each document type, so the required format can be re-specified later without a code change.",
+      "Documents filed here attach to a chapter and the current reporting period. Formats and size limits come from each document type, so the required format can be re-specified later without a code change. The chapter audit and foundation 990 are Chapter Upload rubric items, so they're uploaded by the chapter itself (My Chapter → Chapman Report) and only show up here once filed — not uploadable from this page.",
   },
   special_event: {
     title: "Special Event Checklists",
@@ -26,6 +27,13 @@ const CATEGORY_META: Record<
     lede: "Upload and track special event planning and after-action checklists.",
     intro:
       "This is a framework: the checklist format is intentionally not fixed yet. Add or edit document types (and their accepted formats) when the final format is decided — no code change needed.",
+  },
+  other: {
+    title: "Other Documents",
+    base: "/admin/other-documents",
+    lede: "District, Regional, and General fees payment confirmations.",
+    intro:
+      "Uploading here against an Admin Upload rubric document type also resolves the matching rubric item to \"Yes\" on the chapter's current report. Chapter Upload document types (bank account verification, GRIP, audit, 990) are deliberately not uploadable here — those must come from the chapter itself, under My Chapter → Chapman Report.",
   },
 };
 
@@ -43,6 +51,28 @@ async function requireAdminView(c: any): Promise<{ session: any; canWrite: boole
   return { session, canWrite: session.role === "admin" };
 }
 
+/**
+ * Document type codes a Chapter Upload rubric item needs. These must come
+ * from the chapter itself — enforced here (not just hidden from the admin
+ * upload cards) so a direct POST can't route around it either.
+ */
+async function chapterUploadOnlyCodes(store: any): Promise<Set<string>> {
+  const [collegiateTree, alumniTree] = await Promise.all([
+    store.getRubricForType("collegiate"),
+    store.getRubricForType("alumni"),
+  ]);
+  const codes = new Set<string>();
+  for (const tree of [collegiateTree, alumniTree]) {
+    if (!tree) continue;
+    for (const item of flattenItems(tree)) {
+      if (item.scoring_type === "chapter_upload" && item.document_type_code) {
+        codes.add(item.document_type_code);
+      }
+    }
+  }
+  return codes;
+}
+
 /** Shared renderer for a document category page (tax / special event). */
 async function renderCategory(c: any, category: Category) {
   const ctx = await requireAdminView(c);
@@ -50,12 +80,14 @@ async function renderCategory(c: any, category: Category) {
   const { session, canWrite } = ctx;
   const store = getStore(c);
   const meta = CATEGORY_META[category];
-  const [types, docs, chapters] = await Promise.all([
+  const [types, docs, chapters, chapterUploadCodes] = await Promise.all([
     store.listDocumentTypes(),
     store.listDocuments({ category, limit: 200 }),
     store.listChapters({ limit: 500 }),
+    chapterUploadOnlyCodes(store),
   ]);
   const catTypes = types.filter((t) => t.category === category);
+  const uploadableCatTypes = catTypes.filter((t) => !chapterUploadCodes.has(t.code));
 
   const typeByCode = new Map(catTypes.map((t) => [t.code, t]));
   const chapterById = new Map(chapters.rows.map((ch) => [ch.id, ch]));
@@ -74,7 +106,7 @@ async function renderCategory(c: any, category: Category) {
       {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
 
       <div class="grid grid-kpi" style="margin-top:16px;">
-        <Kpi label="Document types" value={catTypes.length} tone="gold" />
+        <Kpi label="Document types" value={uploadableCatTypes.length} tone="gold" />
         <Kpi label="Files on record" value={docs.length} tone="blue" />
         <Kpi
           label="Accepted"
@@ -93,7 +125,7 @@ async function renderCategory(c: any, category: Category) {
       </div>
 
       <div class="grid grid-2" style="margin-top:16px;">
-        {catTypes.map((t) => (
+        {uploadableCatTypes.map((t) => (
           <Card title={t.label}>
             <p class="muted small">{t.description}</p>
             <div class="row" style="margin:8px 0;gap:8px;">
@@ -143,11 +175,12 @@ async function renderCategory(c: any, category: Category) {
             )}
           </Card>
         ))}
-        {catTypes.length === 0 ? (
+        {uploadableCatTypes.length === 0 ? (
           <Card title="No document types">
             <Empty>
-              No document types are configured for this category yet. Add them in the seed data
-              (document_types.csv) when the format is decided.
+              {catTypes.length > 0
+                ? "Every document type in this category is a Chapter Upload rubric item — uploaded by the chapter itself, not from here."
+                : "No document types are configured for this category yet. Add them in the seed data (document_types.csv) when the format is decided."}
             </Empty>
           </Card>
         ) : null}
@@ -206,6 +239,7 @@ async function renderCategory(c: any, category: Category) {
 /* ---------------------------------------------------------------------- */
 documentsRoutes.get("/admin/documents", (c) => renderCategory(c, "tax"));
 documentsRoutes.get("/admin/special-events", (c) => renderCategory(c, "special_event"));
+documentsRoutes.get("/admin/other-documents", (c) => renderCategory(c, "other"));
 
 /* ---------------------------------------------------------------------- */
 /* Upload handler                                                         */
@@ -225,6 +259,11 @@ documentsRoutes.post("/documents/upload", async (c) => {
   const docType = types.find((t) => t.code === documentTypeCode);
   if (!docType) {
     return c.redirect(`${base}?err=${encodeURIComponent("Unknown document type.")}`);
+  }
+  if ((await chapterUploadOnlyCodes(store)).has(documentTypeCode)) {
+    return c.redirect(
+      `${base}?err=${encodeURIComponent("This document must be uploaded by the chapter itself, not by an admin.")}`
+    );
   }
   const file = form.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -279,6 +318,10 @@ documentsRoutes.post("/documents/upload", async (c) => {
     reportingYear: period.reportingYear,
     notes: notes || null,
   });
+  // A no-op unless this document type satisfies an Admin Upload rubric item
+  // on the chapter's current report — an admin's own upload never resolves
+  // a Chapter Upload item, which must come from the chapter itself.
+  await store.markUploadReceived(chapterId, documentTypeCode, period, "admin");
 
   return c.redirect(`${base}?ok=${encodeURIComponent(file.name)}`);
 });

@@ -395,7 +395,7 @@ export function createSupabaseStore(
       return (data ?? []) as Submission[];
     },
 
-    async setResponse(submissionId, rubricItemId, answer) {
+    async setResponse(submissionId, rubricItemId, answer, responseValue) {
       const { data: item } = await client
         .from("rubric_items")
         .select("*")
@@ -407,16 +407,37 @@ export function createSupabaseStore(
       const penalty = (item as any).mandatory_penalty ?? 0;
       const awarded =
         answer === "no" ? (isRequired ? penalty : 0) : base;
-      await client.from("submission_item_responses").upsert(
-        {
-          submission_id: submissionId,
-          rubric_item_id: rubricItemId,
-          answer_code: answer,
-          awarded_points: awarded,
-        },
-        { onConflict: "submission_id,rubric_item_id" }
-      );
+      const payload: Record<string, unknown> = {
+        submission_id: submissionId,
+        rubric_item_id: rubricItemId,
+        answer_code: answer,
+        awarded_points: awarded,
+      };
+      if (responseValue !== undefined) payload.response_value = responseValue;
+      await client.from("submission_item_responses").upsert(payload, {
+        onConflict: "submission_id,rubric_item_id",
+      });
       await recalc(client, submissionId);
+    },
+
+    async markUploadReceived(chapterId, documentTypeCode, period, uploadedBy) {
+      const chapter = await this.getChapter(chapterId);
+      if (!chapter) return;
+      const tree = await this.getRubricForType(chapter.chapter_type_code);
+      if (!tree) return;
+      const expectedScoringType = uploadedBy === "chapter" ? "chapter_upload" : "admin_upload";
+      const { data: items } = await client
+        .from("rubric_items")
+        .select("id")
+        .eq("rubric_version_id", tree.version.id)
+        .eq("document_type_code", documentTypeCode)
+        .eq("scoring_type", expectedScoringType)
+        .eq("active", true);
+      if (!items?.length) return;
+      const submission = await this.getOrCreateSubmission(chapterId, period);
+      for (const item of items) {
+        await this.setResponse(submission.id, (item as any).id, "yes");
+      }
     },
 
     async submitReport(submissionId) {

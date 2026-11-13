@@ -132,6 +132,8 @@ const rubric = rubricVersions.map((v) => {
               is_required: it.is_required === "true",
               default_point_value: Number(it.default_point_value) || 1,
               display_order: Number(it.display_order),
+              scoring_type: it.scoring_type || "yes_no",
+              document_type_code: it.document_type_code || null,
             }))
             .sort((a, b) => a.display_order - b.display_order),
         }))
