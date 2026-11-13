@@ -464,6 +464,64 @@ being resolved, not assumed:
   (review item 9 from the earlier checklist) rather than updated from
   memory of what should be true.
 
+**Status: defect 8 (reporting-deadline enforcement) code complete
+(migration `0010_phase3_deadline_enforcement.sql`), locally verified, NOT
+yet applied to production.** Per the organization's own confirmed answer
+(§8 — deadlines are hard-enforced, not advisory):
+- `enforce_submission_transition`'s `UPDATE` path now rejects any chapter
+  write or reviewer decision on a submission once its matching
+  `reporting_windows` row's `closes_on` date has passed, via a new
+  `reporting_window_closed(term_code, reporting_year)` helper. The check
+  does **not** apply to the `INSERT` path — the app lazily auto-creates a
+  submission's canonical empty draft row on a chapter's first dashboard
+  visit for a period, with no separate "start a new submission" action to
+  gate, and a row that can never be edited or submitted anyway gains
+  nothing from being blocked at creation; blocking it would only turn a
+  routine page load into an unhandled exception for a chapter that never
+  visited during an already-closed window.
+- The concrete admin override promised alongside "hard-enforced" is
+  `reopenSubmission()` — already implemented in a prior phase but never
+  wired to any route — now reachable from a new `/admin/submissions`
+  page (`listVisibleSubmissions`, already RLS-scoped to full visibility
+  for admins) with a `Reopen` action per non-draft row.
+- `src/routes/chapter.tsx` and `src/routes/review.tsx`'s mutation
+  handlers now catch a rejection and redirect with `?err=`, rendered as a
+  `Callout` on the page the user was on, instead of an unhandled
+  exception reaching Hono's default plain-text 500 — every other
+  existing trigger-level rejection in this app still does the latter;
+  this was added because a hard deadline is something a real chapter or
+  reviewer will actually hit routinely, not an edge case worth leaving
+  unreadable.
+- **Verified against a genuine local Postgres instance** (never as
+  `postgres`/table owner — connected as `authenticated` via `SET ROLE` +
+  real `request.jwt.claim.*` GUCs, per §6.2), 9 checks: the helper
+  correctly reports a window closed; a chapter's withdraw and a DD's
+  approve are both rejected with the exact new error text once the
+  window has closed; an admin's `reopenSubmission`-equivalent update
+  still succeeds past the deadline (the override); a chapter still
+  cannot resubmit afterward because the *window* itself, not just the
+  submission's own status, is what's closed; and two negative controls —
+  a submission in a still-open window, and one in a window with no
+  `closes_on` set at all — are both completely unaffected.
+- Also corrected while building this phase's test fixture: §7.1 and §7.4
+  misidentified `prevent_profile_self_escalation()` and its trigger as
+  untracked (production-only, appearing in no migration). It is actually
+  defined in migration `0004_rls_write_hardening.sql`, with a body
+  identical to what was found live — confirmed by re-grepping every
+  migration file for the name, something the original audit evidently
+  didn't do carefully enough for this one function. The other objects
+  that audit called untracked (`current_role_code`, `current_user_
+  district`, `current_user_region`, `is_exec`, the 28 old-generation
+  duplicate policies, the `system_contacts` table) were independently
+  re-confirmed absent from every migration file by the same grep, so this
+  correction is scoped to this one function/trigger pair only — it does
+  not change which production fixes in §7.3/§7.4 were necessary, only the
+  explanation of why that specific trigger was already present and
+  already doing real work before this engagement began.
+- **What's NOT done**: none of this has been applied to the real
+  Supabase project yet — only local, disposable PostgreSQL 16, same as
+  every phase before real-Supabase verification began in §7.1.
+
 ---
 
 ## 6. Verification standards (apply to every phase, not just Phase 1)
@@ -555,13 +613,21 @@ migrations applied. Every query run was a plain `SELECT` — nothing was
 written in the course of gathering these findings.
 
 **Headline finding: the live project's schema was never built by running
-`supabase/migrations/0001-0009` in sequence.** It was assembled by some
-other, untracked process over time. Evidence: helper functions and a
-trigger exist in production that appear nowhere in any migration file
-(`current_role_code()`, `current_user_district()`, `current_user_region()`,
-`is_exec()`, `prevent_profile_self_escalation()` +
-`prevent_profile_self_escalation_trigger`), and on tables like
-`submissions`, `submission_item_responses`, and `approval_actions`, an
+`supabase/migrations/0001-0009` in sequence, end to end, as a single
+process.** The more precise picture (corrected 2026-11-13 — see §7.5):
+something close to migrations `0001`-`0007` was likely applied at some
+point (the live `enforce_submission_transition`/`is_admin`/etc. bodies
+found below are specifically the *pre-`0008`* versions, not some
+unrelated implementation, and `prevent_profile_self_escalation` +
+its trigger — found live and originally miscounted here as untracked —
+is in fact defined in `0004_rls_write_hardening.sql` with a body
+identical to production's), but **additional hand-written SQL was then
+layered on top outside that process, and `0008`/`0009` were never
+applied at all.** Evidence of the hand-written layer: helper functions
+that appear nowhere in any migration file (`current_role_code()`,
+`current_user_district()`, `current_user_region()`, `is_exec()`), and on
+tables like `submissions`, `submission_item_responses`, and
+`approval_actions`, an
 *older* generation of RLS policies (e.g. `submissions_insert_chapter`,
 `submissions_update_scope`, `responses_write_for_scope`,
 `approvals_insert_scope`) sits alongside a *newer* generation that matches
@@ -620,8 +686,9 @@ follow-up `select ... from pg_policies` showing the new `with_check` text
 exactly matching. **This closes both halves of defect 1c** on production:
 the INSERT path by this fix, and the UPDATE path (an existing row's
 `role_code`/`district`/`region`/`is_active` being changed by a non-admin)
-was already blocked by the live, untracked `prevent_profile_self_escalation`
-trigger. No other policy, function, or trigger was touched.
+was already blocked by the `prevent_profile_self_escalation` trigger
+(tracked — `0004_rls_write_hardening.sql`; see §7.5's correction). No
+other policy, function, or trigger was touched.
 
 ### 7.2 Table/column structure comparison, and an urgent RPC fix (2026-11-11)
 

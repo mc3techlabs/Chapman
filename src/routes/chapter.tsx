@@ -224,9 +224,11 @@ chapterRoutes.get("/chapter/submission", async (c) => {
     submission.workflow_status === "submitted" &&
     submission.district_review_status === "pending" &&
     submission.regional_review_status === "pending";
+  const err = c.req.query("err");
 
   const body = (
     <>
+      {err ? <Callout tone="red">{decodeURIComponent(err)}</Callout> : null}
       <PageHead
         title="Chapman Report"
         lede={
@@ -364,7 +366,11 @@ chapterRoutes.post("/chapter/submission/answer", async (c) => {
   const store = getStore(c);
   const submission = await store.getSubmission(submissionId);
   if (submission && ["draft", "returned"].includes(submission.workflow_status)) {
-    await store.setResponse(submissionId, itemId, answer);
+    try {
+      await store.setResponse(submissionId, itemId, answer);
+    } catch (e: any) {
+      return c.redirect(`/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not save that answer.")}`);
+    }
   }
   return c.redirect("/chapter/submission");
 });
@@ -377,7 +383,11 @@ chapterRoutes.post("/chapter/submission/submit", async (c) => {
   const store = getStore(c);
   const submission = await store.getSubmission(submissionId);
   if (submission && ["draft", "returned"].includes(submission.workflow_status)) {
-    await store.submitReport(submissionId);
+    try {
+      await store.submitReport(submissionId);
+    } catch (e: any) {
+      return c.redirect(`/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not submit this report.")}`);
+    }
   }
   return c.redirect("/chapter");
 });
@@ -402,7 +412,11 @@ chapterRoutes.post("/chapter/submission/withdraw", async (c) => {
     submission.district_review_status === "pending" &&
     submission.regional_review_status === "pending"
   ) {
-    await store.withdrawSubmission(submissionId);
+    try {
+      await store.withdrawSubmission(submissionId);
+    } catch (e: any) {
+      return c.redirect(`/chapter/submission?err=${encodeURIComponent(e?.message ?? "Could not withdraw this submission.")}`);
+    }
   }
   return c.redirect("/chapter/submission");
 });
