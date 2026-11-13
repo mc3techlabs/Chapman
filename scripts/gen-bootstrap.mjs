@@ -17,14 +17,16 @@
  * migration, reviewed like any other, not in this generator.)
  *
  * The script:
- *   1. Concatenates supabase/migrations/0001...0007 verbatim, in order. They
- *      are already written with `if not exists` / `create or replace` /
+ *   1. Concatenates every file in supabase/migrations/ verbatim, in order.
+ *      They are already written with `if not exists` / `create or replace` /
  *      `drop ... if exists`, so running this on a project that already has
  *      *some* of the schema only creates what is missing — it never drops
  *      or overwrites your data.
  *   2. Seeds all lookup data, geography, the two rubric versions with 300
- *      items, the 879-chapter roster, and the 7 document types — all
- *      idempotent.
+ *      items, the chapter roster, and the document types — all idempotent.
+ *      The exact row counts are read from supabase/seed/*.csv at generation
+ *      time (see the footer below), not hand-maintained here, since the
+ *      roster and document types both grow over time.
  *
  * This generator does not converge an older, pre-0001 scaffold (a prior
  * prototype lineage, not this repo's migration history) to the current
@@ -67,6 +69,17 @@ function readCsv(name) {
     .filter((r) => r.some((c) => c.trim() !== ""))
     .map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), (r[i] ?? "").trim()])));
 }
+
+/* -------------------- Seed counts, read fresh every run ------------------ */
+// These feed the footer's verification query comment. They are NOT
+// hand-maintained: the roster and document types both grow over time, and a
+// stale hardcoded count here is exactly what caused confusion before (a
+// project whose chapters table already holds rows this script's own filter
+// skips — e.g. ones missing a district — will legitimately show a higher
+// chapters count than chaptersSeedCount; that is not a bug).
+const chaptersSeedCount = readCsv("chapters.csv").filter((r) => r.district && r.region).length;
+const documentTypesSeedCount = readCsv("document_types.csv").length;
+const rubricItemsSeedCount = readCsv("rubric_items.csv").length;
 
 /* ------------------------------- SQL literals ---------------------------- */
 // Always a quoted literal (empty string -> ''). For non-nullable text columns.
@@ -325,9 +338,14 @@ const header = `-- =============================================================
 
 const footer = `
 -- ===========================================================================
--- DONE. Expected result of the verification query above:
---   chapters = 879, rubric_items = 300, document_types = 7, regions = 6,
---   districts = 38, rubric_versions = 2.
+-- DONE. This seed inserts (or upserts) at least:
+--   chapters = ${chaptersSeedCount}, rubric_items = ${rubricItemsSeedCount},
+--   document_types = ${documentTypesSeedCount}, regions = 6, districts = 38,
+--   rubric_versions = 2.
+-- A project that already had rows outside this seed's own filters (e.g. a
+-- chapter missing a district, added through the app's own import tool) will
+-- correctly show a HIGHER chapters count below — this script never deletes,
+-- so that is not a discrepancy to chase.
 -- ===========================================================================
 
 select 'chapters' as entity, count(*) from public.chapters

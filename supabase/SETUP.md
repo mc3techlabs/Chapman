@@ -33,8 +33,8 @@ plus the seed data. It:
    `supabase/migrations/` — safe to run repeatedly; every object it creates
    uses `create or replace` / `drop ... if exists` first.
 2. Creates the unique-key guards the app upserts against.
-3. Seeds the 879-row national roster, both rubrics (300 items), all lookups, the
-   geography (6 regions / 38 districts), the 7 document types, and a default
+3. Seeds the national roster, both rubrics (300 items), all lookups, the
+   geography (6 regions / 38 districts), the document types, and a default
    Fall-2026 reporting window.
 
 **Run it:**
@@ -42,16 +42,14 @@ plus the seed data. It:
 1. Open the Supabase dashboard → **SQL Editor** → **New query**.
 2. Paste the entire contents of `supabase/bootstrap.sql`.
 3. Click **Run**.
-4. The final query prints the row counts to confirm — you should see:
-
-   | entity | count |
-   |--------|-------|
-   | chapters | 872 |
-   | districts | 38 |
-   | document_types | 7 |
-   | regions | 6 |
-   | rubric_items | 300 |
-   | rubric_versions | 2 |
+4. The final query prints the row counts to confirm — the exact expected
+   numbers are in that file's own footer comment (they're read from
+   `supabase/seed/*.csv` at generation time, not hand-maintained here, since
+   the roster and document types both grow). `districts`, `regions`, and
+   `rubric_versions` are fixed; `chapters` can legitimately come back higher
+   than the seed's own count if the project already had chapters this
+   script's filters skip (e.g. one missing a district) — that's not a sign
+   anything went wrong, since this script never deletes rows.
 
 It is safe to re-run at any time. Re-running never duplicates rows and never
 overwrites rows you have since edited through the app.
