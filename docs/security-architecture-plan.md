@@ -483,25 +483,29 @@ session's sandbox has no network path to query — see §7.1's method note).
   required at all. Asked directly, not assumed — see the conversation for
   the live answers once given.
 - **Needs the project owner, not this session:** JWT/session TTL, public-
-  signup setting, MFA enforcement, Storage bucket privacy, and backup/PITR
-  configuration are dashboard-only settings (Supabase Authentication/
-  Storage/Database pages) this session cannot read directly. Storage
-  bucket privacy is the one exception — `select id, name, public from
-  storage.buckets;` is a plain read-only query, so it can go through the
-  same paste-and-report process §7.1 already established, once asked for.
-  Preview/Production Cloudflare Pages environment separation is a
-  Cloudflare dashboard check (Pages project → Settings → Environment
-  variables), not a Supabase one.
+  signup setting, MFA enforcement, and backup/PITR configuration are
+  dashboard-only settings (Supabase Authentication/Storage/Database pages)
+  this session cannot read directly. Preview/Production Cloudflare Pages
+  environment separation is a Cloudflare dashboard check (Pages project →
+  Settings → Environment variables), not a Supabase one.
+- **Confirmed 2026-11-14 — Storage bucket privacy.** `select id, name,
+  public from storage.buckets;` (the plain read-only query §7.1's
+  paste-and-report process already established) against the live project
+  returned exactly one bucket: `chapman-documents`, `public = false`. This
+  is the correct, expected state — the app writes with the service-role
+  key and serves files through short-lived signed URLs, which only works
+  as intended when the bucket itself isn't publicly readable. No action
+  needed; this line item is closed.
 
 Closes defect 8 plus the Step-3 deployment unknowns this plan depends on
 being resolved, not assumed:
 - Reporting-deadline enforcement, *if* the organization confirms deadlines
   should be hard rather than advisory (open question, §8).
 - Confirm (not assume) JWT/session TTL, public-signup setting, MFA posture
-  for admin/executive roles, Storage bucket privacy, backup/PITR
-  configuration, and environment separation between Preview and
-  Production Supabase projects — each against the live project directly,
-  per §7.
+  for admin/executive roles, backup/PITR configuration, and environment
+  separation between Preview and Production Supabase projects — each
+  against the live project directly, per §7. (Storage bucket privacy is
+  confirmed, above.)
 - README/SETUP.md rewritten to match whatever single deployment path
   Phase 0 settled on, verified line-by-line against the actual scripts
   (review item 9 from the earlier checklist) rather than updated from
