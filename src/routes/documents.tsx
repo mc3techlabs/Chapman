@@ -330,8 +330,7 @@ documentsRoutes.post("/documents/upload", async (c) => {
 /* Download (signed URL in production)                                    */
 /* ---------------------------------------------------------------------- */
 documentsRoutes.get("/documents/:id/download", async (c) => {
-  const ctx = await requireAdminView(c);
-  if (ctx instanceof Response) return ctx;
+  const session = c.get("session");
   const id = c.req.param("id");
   const admin = getAdminClient((c.env ?? {}) as any);
   const bucket = ((c.env ?? {}) as any).DOCUMENTS_BUCKET || "chapman-documents";
@@ -339,8 +338,19 @@ documentsRoutes.get("/documents/:id/download", async (c) => {
     return c.text("Downloads are available once storage is configured.", 501);
   }
   // Look up the row's storage path directly (service role), then mint a URL.
-  const { data } = await admin.from("documents").select("storage_path").eq("id", id).maybeSingle();
+  const { data } = await admin
+    .from("documents")
+    .select("storage_path, chapter_id")
+    .eq("id", id)
+    .maybeSingle();
   if (!data?.storage_path) return c.text("Document not found", 404);
+
+  // Admin/admin_readonly can view anything; a chapter can only view its own.
+  const isAdmin = session.role === "admin" || session.role === "admin_readonly";
+  const isOwningChapter =
+    session.role === "chapter" && (session.chapterIds ?? []).includes(data.chapter_id);
+  if (!isAdmin && !isOwningChapter) return c.redirect("/");
+
   const { data: signed, error } = await admin.storage
     .from(bucket)
     .createSignedUrl(data.storage_path, 300);
