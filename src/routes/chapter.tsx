@@ -593,6 +593,7 @@ chapterRoutes.get("/chapter/documents", async (c) => {
   const store = getStore(c);
   const types = await store.listDocumentTypes();
   const docs = await store.listDocuments({ chapterId: chapter.id, limit: 200 });
+  const typeByCode = new Map(types.map((t) => [t.code, t]));
 
   const body = (
     <>
@@ -648,8 +649,10 @@ chapterRoutes.get("/chapter/documents", async (c) => {
                 <tbody>
                   {docs.map((d: any) => (
                     <tr>
-                      <td>{d.file_name}</td>
-                      <td class="mono tiny">{d.document_type_code}</td>
+                      <td>
+                        <a href={`/documents/${d.id}/download`}>{d.file_name}</a>
+                      </td>
+                      <td class="mono tiny">{typeByCode.get(d.document_type_code)?.label ?? d.document_type_code}</td>
                       <td>{fmtDate(d.created_at)}</td>
                       <td>
                         <Badge tone={d.status === "accepted" ? "green" : "amber"}>
